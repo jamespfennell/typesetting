@@ -1,12 +1,18 @@
 package knuthplass
 
+// TODO: rename PositiveInfinitePenalty
+const PositiveInfinity int64 = 10000
+const NegativeInfinity int64 = -10000
+
+// what about infinite stretch?
+
 // Item is any element in the typesetting input: box, glue or penalty
 type Item interface {
 	Width() int64
-	// EndOfLineWidth() int64
+	EndOfLineWidth() int64
 	Shrinkability() int64
 	Stretchability() int64
-	PenaltyCost() int64
+	PenaltyCost() int64 // rename penalty
 	IsFlaggedPenalty() bool
 }
 
@@ -26,6 +32,10 @@ type box struct {
 }
 
 func (box *box) Width() int64 {
+	return box.width
+}
+
+func (box *box) EndOfLineWidth() int64 {
 	return box.width
 }
 
@@ -66,6 +76,10 @@ func (glue *glue) Width() int64 {
 	return glue.width
 }
 
+func (glue *glue) EndOfLineWidth() int64 {
+	return 0
+}
+
 func (glue *glue) Shrinkability() int64 {
 	return glue.shrinkability
 }
@@ -100,6 +114,10 @@ type penalty struct {
 }
 
 func (penalty *penalty) Width() int64 {
+	return 0
+}
+
+func (penalty *penalty) EndOfLineWidth() int64 {
 	return penalty.width
 }
 
@@ -117,4 +135,27 @@ func (penalty *penalty) PenaltyCost() int64 {
 
 func (penalty *penalty) IsFlaggedPenalty() bool {
 	return penalty.flagged
+}
+
+func (penalty *penalty) IsValidBreakpoint(Item) bool {
+	return penalty.PenaltyCost() < 10000
+}
+
+// IsValidBreakpoint determines whether item is a valid breakpoint
+func IsValidBreakpoint(preceedingItem Item, item Item) bool {
+	// It would be nice to implement this method without type casts
+	// and use polymorphism instead but it's tricky because we need
+	// to inspect two boxes
+	switch v := item.(type) {
+	case *penalty:
+		return v.PenaltyCost() < PositiveInfinity
+	case *glue:
+		if preceedingItem == nil {
+			return false
+		}
+		_, preceedingItemIsBox := preceedingItem.(*box)
+		return preceedingItemIsBox
+	default:
+		return false
+	}
 }

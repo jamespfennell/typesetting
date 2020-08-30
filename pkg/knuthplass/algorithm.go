@@ -1,42 +1,42 @@
 package knuthplass
 
+import (
+	"fmt"
+)
+
 func KnuthPlassAlgorithm(
 	items []Item,
 	startingLineLengths []int64,
 	subsequentLineLengths int64,
 	criteria OptimalityCriteria,
-) ([]int64, error) {
+) ([]int, error) {
 
-	// During the algorithm we need to know the width, shrinkability and stretchability
-	// of lines; i.e., contiguous subsequences of items. The following slices allow us to
-	// compute these quantities in O(n) time: the width of a line starting wtih item k
-	// and ending with item l
-	// is widthSoFar[l+1] - widthSoFar[k].
-	// TODO: design a data structure for this, will make code more readable below
-	// Also the data structures can incorporate the edge cases with and glue at the end of the line
-	// maybe a single data structure for all 3
-	// lineData.Width(start int64, end int64)
 	lineData := buildLineData(items)
 
 	// Set of nodes
 	activeNodes := make(map[node]bool)
-
-	firstNode := node{position: 0, line: 0, fitnessClass: 1}
+	newActiveNodes := make(map[node]bool)
+	firstNode := node{position: -1, line: 0, fitnessClass: 1}
 	activeNodes[firstNode] = true
 
-	nodeToPrevious := make(map[node]*node)
+	// Data about the nodes. We don't include this data on the node object itself
+	// as that would interfere with hashing
+	nodeToPrevious := make(map[node]node)
 	nodeToMinDemerits := make(map[node]float64)
-	for position := int64(0); position < int64(len(items)); position++ {
-		if items[position].PenaltyCost() > 10000 {
-			continue
+
+	for position, item := range items {
+		var preceedingItem Item = nil
+		if position > 0 {
+			preceedingItem = items[position-1]
 		}
-		if IsBox(items[position]) {
-			continue
-		}
-		if IsGlue(items[position]) && (position == 0 || !IsBox(items[position-1])) {
+		if !IsValidBreakpoint(preceedingItem, item) {
 			continue
 		}
 		for activeNode := range activeNodes {
+			// fmt.Println("here!")
+			// fmt.Println("Considering break from ", activeNode.position, "to", position)
+			// fmt.Println("Line width", lineData.GetWidth(activeNode.position, position))
+
 			adjustmentRatio := calculateAdjustmentRatio(
 				lineData.GetWidth(activeNode.position, position),
 				lineData.GetShrinkability(activeNode.position, position),
@@ -47,16 +47,18 @@ func KnuthPlassAlgorithm(
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
 			if adjustmentRatio < -1 {
+				println("Skipping, adjustment ratio too small", adjustmentRatio)
 				delete(activeNodes, activeNode)
 				continue
 			}
 			// We must add a break here, in which case previous active nodes are deleted
-			if items[position].PenaltyCost() < -10000 {
+			if items[position].PenaltyCost() <= NegativeInfinity {
 				delete(activeNodes, activeNode)
 			}
 			// This is the case when there is not enough material for the line.
 			// We skip, but keep the node active because in a future breakpoint it may be used.
 			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
+				fmt.Println("Skipping", activeNode.position, "to", position, "(adjustment ratio too large)")
 				continue
 			}
 			thisNode := node{
@@ -64,41 +66,56 @@ func KnuthPlassAlgorithm(
 				line:         activeNode.line + 1, // Todo: should be -1 in some cases
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
+			newActiveNodes[thisNode] = true
+			// NOTE: this is wrong! The item of interest if the one pointed to be active node
+			preceedingItemIsFlaggedPenalty := false
+			if preceedingItem != nil {
+				preceedingItemIsFlaggedPenalty = false // preceedingItem.IsFlaggedPenalty()
+			}
 			demerits := criteria.CalculateDemerits(
 				adjustmentRatio,
 				thisNode.fitnessClass,
 				activeNode.fitnessClass,
-				items[position].PenaltyCost(),
-				items[position].IsFlaggedPenalty(),
-				items[position-1].IsFlaggedPenalty(),
+				item.PenaltyCost(),
+				item.IsFlaggedPenalty(),
+				preceedingItemIsFlaggedPenalty,
 			) + nodeToMinDemerits[activeNode]
+			println("Cost of going from", activeNode.position, "to", position, "is", demerits)
 			minDemeritsSoFar := true
-			if nodeToPrevious[thisNode] != nil {
+			if _, nodeAlreadyEncountered := nodeToPrevious[thisNode]; nodeAlreadyEncountered {
 				minDemeritsSoFar = demerits < nodeToMinDemerits[thisNode]
 			}
+			//if nodeToPrevious[thisNode] != nil {
+			//}
 			if minDemeritsSoFar {
-				nodeToPrevious[thisNode] = &activeNode
+				print("Setting previous")
+				nodeToPrevious[thisNode] = activeNode
 				nodeToMinDemerits[thisNode] = demerits
 			}
+		}
+		for newActiveNode := range newActiveNodes {
+			// fmt.Println("Adding new active nodes")
+			delete(newActiveNodes, newActiveNode)
+			activeNodes[newActiveNode] = true
 		}
 	}
 	if len(activeNodes) == 0 {
 		return nil, &NoSolutionError{}
 	}
-	var bestNode *node
+	var bestNode node
 	minDemerits := float64(-1)
 	for activeNode := range activeNodes {
 		if minDemerits < 0 || nodeToMinDemerits[activeNode] < minDemerits {
 			minDemerits = nodeToMinDemerits[activeNode]
-			bestNode = &activeNode
+			bestNode = activeNode
 		}
 	}
 	numBreakpoints := int64(0)
-	for thisNode := bestNode; thisNode != nil; thisNode = nodeToPrevious[*thisNode] {
+	for thisNode := bestNode; thisNode.position != -1; thisNode = nodeToPrevious[thisNode] {
 		numBreakpoints++
 	}
-	breakpointIndices := make([]int64, numBreakpoints)
-	for thisNode := bestNode; thisNode != nil; thisNode = nodeToPrevious[*thisNode] {
+	breakpointIndices := make([]int, numBreakpoints)
+	for thisNode := bestNode; thisNode.position != -1; thisNode = nodeToPrevious[thisNode] {
 		breakpointIndices[numBreakpoints-1] = thisNode.position
 		numBreakpoints--
 	}
@@ -106,11 +123,10 @@ func KnuthPlassAlgorithm(
 }
 
 // lineData is a data structure that facilitates computing the width, shrinkability
-// and stretchability of a line (i.e., a contiguous subsequence of items) in O(1).
-// It incorporates the logic that the width of a glue item doesn't count if the glue
-// is at the end of the line, and that the width of a penalty item only counts if 
-// it is at the end.
-// TODO: probably this logic should be on the structure itself
+// and stretchability of a line (i.e., a contiguous subsequence of Items) in O(1).
+// It incorporates the logic that a glue item at the end of a line does not contribute
+// to any of these quantities, and that a penalty item only contributes if it is at the
+// end.
 type lineData struct {
 	aggregateWidth          []int64
 	aggregateShrinkability  []int64
@@ -128,47 +144,43 @@ func buildLineData(items []Item) *lineData {
 	lineData.aggregateWidth[0] = 0
 	lineData.aggregateShrinkability[0] = 0
 	lineData.aggregateStretchibility[0] = 0
-	for position := int64(0); position < int64(len(items)); position++ {
-		lineData.aggregateWidth[position+1] = lineData.aggregateWidth[position]
-		if !IsPenalty(items[position]) {
-			lineData.aggregateWidth[position+1] += items[position].Width()
-		}
-		lineData.aggregateShrinkability[position+1] = lineData.aggregateShrinkability[position] + items[position].Shrinkability()
-		lineData.aggregateStretchibility[position+1] = lineData.aggregateStretchibility[position] + items[position].Stretchability()
+	for position, item := range items {
+		lineData.aggregateWidth[position+1] =
+			lineData.aggregateWidth[position] +
+				item.Width()
+		lineData.aggregateShrinkability[position+1] =
+			lineData.aggregateShrinkability[position] +
+				item.Shrinkability()
+		lineData.aggregateStretchibility[position+1] =
+			lineData.aggregateStretchibility[position] +
+				item.Stretchability()
 	}
 	return lineData
 }
 
-func (lineData *lineData) GetWidth(start int64, end int64) (width int64) {
-	width = lineData.aggregateWidth[end+1] - lineData.aggregateWidth[start]
-	if IsPenalty(lineData.items[end]) {
-		width += lineData.items[end].Width()
-	} else if IsGlue(lineData.items[end]) {
-		width -= lineData.items[end].Width()
-	}
-	return
+func (lineData *lineData) GetWidth(previousBreakpoint int, thisBreakPoint int) int64 {
+	return lineData.aggregateWidth[thisBreakPoint+1] -
+		lineData.aggregateWidth[previousBreakpoint+1] +
+		lineData.items[thisBreakPoint].EndOfLineWidth() -
+		lineData.items[thisBreakPoint].Width()
 }
 
-func (lineData *lineData) GetShrinkability(start int64, end int64) (shrinkability int64) {
-	shrinkability = lineData.aggregateShrinkability[end+1] - lineData.aggregateShrinkability[start]
-	if IsGlue(lineData.items[end]) {
-		shrinkability -= lineData.items[end].Shrinkability()
-	}
-	return
+func (lineData *lineData) GetShrinkability(start int, end int) int64 {
+	return lineData.aggregateShrinkability[end+1] -
+		lineData.aggregateShrinkability[start+1] -
+		lineData.items[end].Shrinkability()
 }
-func (lineData *lineData) GetStrechability(start int64, end int64) (stretchibility int64) {
-	stretchibility = lineData.aggregateStretchibility[end+1] - lineData.aggregateStretchibility[start]
-	if IsGlue(lineData.items[end]) {
-		stretchibility -= lineData.items[end].Stretchability()
-	}
-	return
+func (lineData *lineData) GetStrechability(start int, end int) int64 {
+	return lineData.aggregateStretchibility[end+1] -
+		lineData.aggregateStretchibility[start+1] -
+		lineData.items[end].Stretchability()
 }
 
 // NoSolutionError is returned if the problem has no solution satisfying the optimality contraints
 type NoSolutionError struct{}
 
 func (err *NoSolutionError) Error() string {
-	return "No solution!"
+	return "There is no admissible solution given the provided optimiality criteria!"
 }
 
 func calculateAdjustmentRatio(
@@ -178,18 +190,20 @@ func calculateAdjustmentRatio(
 	targetLineWidth int64,
 
 ) float64 {
-	if lineWidth < targetLineWidth {
-		// Division by 0, inf is allowed
-		return float64(lineWidth-targetLineWidth) / float64(lineShrinkability)
-	}
 	if lineWidth > targetLineWidth {
-		return float64(lineWidth-targetLineWidth) / float64(lineStretchability)
+		// Division by 0, inf is allowed
+		// fmt.Println("Why shrinking?", lineWidth, targetLineWidth, lineShrinkability)
+		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
+	}
+	if lineWidth < targetLineWidth {
+		// fmt.Println("Stretching", lineWidth, targetLineWidth, lineStretchability)
+		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
 	}
 	return 0
 }
 
 type node struct {
-	position     int64
+	position     int // NOTE: golang restrictions mean this will be the max length of items
 	line         int64
 	fitnessClass FitnessClass
 	// Note: total width needs to account for penalty width of the breakpoint
