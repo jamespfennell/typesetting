@@ -3,6 +3,7 @@ package knuthplass
 // Item is any element in the typesetting input: box, glue or penalty
 type Item interface {
 	Width() int64
+	// EndOfLineWidth() int64
 	Shrinkability() int64
 	Stretchability() int64
 	PenaltyCost() int64
@@ -12,6 +13,12 @@ type Item interface {
 // NewBox creates and returns a new box item
 func NewBox(width int64) Item {
 	return &box{width: width}
+}
+
+// IsBox returns true iff the item is a box item
+func IsBox(item Item) bool {
+	_, ok := item.(*box)
+	return ok
 }
 
 type box struct {
@@ -41,6 +48,12 @@ func (*box) IsFlaggedPenalty() bool {
 // NewGlue creates and returns a new glue item
 func NewGlue(width int64, shrinkability int64, stretchability int64) Item {
 	return &glue{width: width, shrinkability: shrinkability, stretchability: stretchability}
+}
+
+// IsGlue returns true iff the item is a glue item
+func IsGlue(item Item) bool {
+	_, ok := item.(*glue)
+	return ok
 }
 
 type glue struct {
