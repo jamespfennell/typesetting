@@ -2,7 +2,6 @@ package knuthplass
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 )
 
@@ -27,14 +26,26 @@ func TestForcedBreaks(t *testing.T) {
 	if err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}
-	expectedBreakpoints := []int64{
+	expectedBreakpoints := []int{
 		3,
 		9,
 		12,
 	}
-	if !reflect.DeepEqual(expectedBreakpoints, actualBreakpoints) {
+	if !listEqual(expectedBreakpoints, actualBreakpoints) {
 		t.Errorf("Results not equal!")
 		fmt.Println("Actual breakpoints", actualBreakpoints)
 
 	}
+}
+
+func listEqual(a []int, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index, aElement := range a {
+		if b[index] != aElement {
+			return false
+		}
+	}
+	return true
 }
