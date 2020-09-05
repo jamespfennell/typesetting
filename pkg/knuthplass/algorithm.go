@@ -1,6 +1,7 @@
 package knuthplass
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -124,22 +125,25 @@ func KnuthPlassAlgorithm(
 
 // lineData is a data structure that facilitates computing the width, shrinkability
 // and stretchability of a line (i.e., a contiguous subsequence of Items) in O(1).
-// It incorporates the logic that a glue item at the end of a line does not contribute
-// to any of these quantities, and that a penalty item only contributes if it is at the
-// end.
+// It incorporates the following logic:
+// - a glue item at the end of a line does not contribute to any of these quantities
+// - a penalty item only contributes if it is at the end of a line.
+// - all items before the first box in a line are ignored
 type lineData struct {
-	aggregateWidth          []int64
-	aggregateShrinkability  []int64
-	aggregateStretchibility []int64
-	items                   []Item
+	aggregateWidth            []int64
+	aggregateShrinkability    []int64
+	aggregateStretchibility   []int64
+	positionToNextBoxPosition map[int]int
+	items                     []Item
 }
 
 func buildLineData(items []Item) *lineData {
 	lineData := &lineData{
-		aggregateWidth:          make([]int64, len(items)+1),
-		aggregateShrinkability:  make([]int64, len(items)+1),
-		aggregateStretchibility: make([]int64, len(items)+1),
-		items:                   items,
+		aggregateWidth:            make([]int64, len(items)+1),
+		aggregateShrinkability:    make([]int64, len(items)+1),
+		aggregateStretchibility:   make([]int64, len(items)+1),
+		positionToNextBoxPosition: make(map[int]int),
+		items:                     items,
 	}
 	lineData.aggregateWidth[0] = 0
 	lineData.aggregateShrinkability[0] = 0
@@ -155,29 +159,77 @@ func buildLineData(items []Item) *lineData {
 			lineData.aggregateStretchibility[position] +
 				item.Stretchability()
 	}
+	itemIndex := 0
+	boxIndex := 0
+	for boxIndex < len(items) {
+		if !IsBox(items[boxIndex]) {
+			boxIndex++
+			continue
+		}
+		lineData.positionToNextBoxPosition[itemIndex] = boxIndex
+		if itemIndex == boxIndex {
+			boxIndex++
+		}
+		itemIndex++
+	}
 	return lineData
 }
 
-func (lineData *lineData) GetWidth(previousBreakpoint int, thisBreakPoint int) int64 {
-	return lineData.aggregateWidth[thisBreakPoint+1] -
-		lineData.aggregateWidth[previousBreakpoint+1] +
-		lineData.items[thisBreakPoint].EndOfLineWidth() -
-		lineData.items[thisBreakPoint].Width()
+func (lineData *lineData) getNextBoxIndex(itemIndex int) (int, error) {
+	nextBoxIndex, ok := lineData.positionToNextBoxPosition[itemIndex]
+	if !ok {
+		return -1, errors.New("no box after this item")
+	}
+	return nextBoxIndex, nil
 }
 
-func (lineData *lineData) GetShrinkability(start int, end int) int64 {
-	return lineData.aggregateShrinkability[end+1] -
-		lineData.aggregateShrinkability[start+1] -
-		lineData.items[end].Shrinkability()
+func (lineData *lineData) GetWidth(previousBreakpoint int, thisBreakpoint int) int64 {
+	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
+	if err != nil {
+		return 0
+	}
+	if nextBoxIndex > thisBreakpoint {
+		return 0
+	}
+	return lineData.aggregateWidth[thisBreakpoint+1] -
+		lineData.aggregateWidth[nextBoxIndex] +
+		lineData.items[thisBreakpoint].EndOfLineWidth() -
+		lineData.items[thisBreakpoint].Width()
 }
-func (lineData *lineData) GetStrechability(start int, end int) int64 {
-	return lineData.aggregateStretchibility[end+1] -
-		lineData.aggregateStretchibility[start+1] -
-		lineData.items[end].Stretchability()
+
+func (lineData *lineData) GetShrinkability(previousBreakpoint int, thisBreakpoint int) int64 {
+	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
+	if err != nil {
+		return 0
+	}
+	if nextBoxIndex > thisBreakpoint {
+		return 0
+	}
+	return lineData.aggregateShrinkability[thisBreakpoint+1] -
+		lineData.aggregateShrinkability[nextBoxIndex] -
+		lineData.items[thisBreakpoint].Shrinkability()
+}
+func (lineData *lineData) GetStrechability(previousBreakpoint int, thisBreakpoint int) int64 {
+	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
+	if err != nil {
+		return 0
+	}
+	if nextBoxIndex > thisBreakpoint {
+		return 0
+	}
+	rawStretchability := lineData.aggregateStretchibility[thisBreakpoint+1] -
+		lineData.aggregateStretchibility[nextBoxIndex] -
+		lineData.items[thisBreakpoint].Stretchability()
+	if rawStretchability < InfiniteStretchability {
+		return rawStretchability
+	}
+	return InfiniteStretchability
 }
 
 // NoSolutionError is returned if the problem has no solution satisfying the optimality contraints
-type NoSolutionError struct{}
+type NoSolutionError struct {
+	// TODO: add data on which lines failed
+}
 
 func (err *NoSolutionError) Error() string {
 	return "There is no admissible solution given the provided optimiality criteria!"
@@ -190,16 +242,17 @@ func calculateAdjustmentRatio(
 	targetLineWidth int64,
 
 ) float64 {
-	if lineWidth > targetLineWidth {
+	switch {
+	case lineWidth > targetLineWidth:
 		// Division by 0, inf is allowed
 		// fmt.Println("Why shrinking?", lineWidth, targetLineWidth, lineShrinkability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
-	}
-	if lineWidth < targetLineWidth {
+	case lineWidth < targetLineWidth:
 		// fmt.Println("Stretching", lineWidth, targetLineWidth, lineStretchability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
+	default:
+		return 0
 	}
-	return 0
 }
 
 type node struct {

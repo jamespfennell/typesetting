@@ -3,6 +3,7 @@ package knuthplass
 // TODO: rename PositiveInfinitePenalty
 const PositiveInfinity int64 = 10000
 const NegativeInfinity int64 = -10000
+const InfiniteStretchability int64 = 100000
 
 // what about infinite stretch?
 
