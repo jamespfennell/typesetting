@@ -44,6 +44,7 @@ func KnuthPlassAlgorithm(
 				lineData.GetStrechability(activeNode.position, position),
 				subsequentLineLengths,
 			)
+			println("Adjustment ratio",activeNode.position, "to", position, adjustmentRatio)
 
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
@@ -89,7 +90,6 @@ func KnuthPlassAlgorithm(
 			//if nodeToPrevious[thisNode] != nil {
 			//}
 			if minDemeritsSoFar {
-				print("Setting previous")
 				nodeToPrevious[thisNode] = activeNode
 				nodeToMinDemerits[thisNode] = demerits
 			}
@@ -248,6 +248,9 @@ func calculateAdjustmentRatio(
 		// fmt.Println("Why shrinking?", lineWidth, targetLineWidth, lineShrinkability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
 	case lineWidth < targetLineWidth:
+		if lineStretchability == InfiniteStretchability {
+			return 0
+		}
 		// fmt.Println("Stretching", lineWidth, targetLineWidth, lineStretchability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
 	default:

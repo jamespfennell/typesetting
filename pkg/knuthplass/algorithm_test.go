@@ -34,7 +34,30 @@ func TestForcedBreaks(t *testing.T) {
 	if !listEqual(expectedBreakpoints, actualBreakpoints) {
 		t.Errorf("Results not equal!")
 		fmt.Println("Actual breakpoints", actualBreakpoints)
+	}
+}
 
+func TestBasicCase(t *testing.T) {
+	items := []Item{
+		NewBox(60),
+		NewGlue(20, 7, 20),
+		NewBox(60),
+		NewGlue(20, 7, 20),
+		NewBox(60),
+		NewGlue(20, 7, 20),
+		NewBox(60),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegativeInfinity, false),
+	}
+	expectedBreakpoints := []int{5, 8}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
+	actualBreakpoints, err := KnuthPlassAlgorithm(items, []int64{}, 270, criteria)
+	if err != nil {
+		t.Errorf("Solvable case marked as unsolved!")
+	}
+	if !listEqual(expectedBreakpoints, actualBreakpoints) {
+		fmt.Println("Actual breakpoints", actualBreakpoints)
+		t.Errorf("Results not equal!")
 	}
 }
 
