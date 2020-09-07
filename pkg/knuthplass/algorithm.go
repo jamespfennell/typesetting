@@ -1,14 +1,35 @@
 package knuthplass
 
 import (
-	"errors"
 	"fmt"
 )
 
+type LineLengths struct {
+	initiaLengths     []int64
+	subsequentLengths int64
+}
+
+func NewConstantLineLengths(constantLength int64) LineLengths {
+	return LineLengths{initiaLengths: []int64{}, subsequentLengths: constantLength}
+}
+
+func (lineLengths *LineLengths) GetLength(lineIndex int) int64 {
+	if lineIndex < len(lineLengths.initiaLengths) {
+		return lineLengths.initiaLengths[lineIndex]
+	}
+	return lineLengths.subsequentLengths
+}
+
+func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequentLines bool) int {
+	if distinguishSubsequentLines || lineIndex < len(lineLengths.initiaLengths) {
+		return lineIndex + 1
+	}
+	return lineIndex
+}
+
 func KnuthPlassAlgorithm(
 	items []Item,
-	startingLineLengths []int64,
-	subsequentLineLengths int64,
+	lineLengths LineLengths,
 	criteria OptimalityCriteria,
 ) ([]int, error) {
 
@@ -37,14 +58,14 @@ func KnuthPlassAlgorithm(
 			// fmt.Println("here!")
 			// fmt.Println("Considering break from ", activeNode.position, "to", position)
 			// fmt.Println("Line width", lineData.GetWidth(activeNode.position, position))
-
+			thisLineIndex := lineLengths.GetNextIndex(activeNode.line, criteria.GetLooseness() != 0)
 			adjustmentRatio := calculateAdjustmentRatio(
 				lineData.GetWidth(activeNode.position, position),
 				lineData.GetShrinkability(activeNode.position, position),
 				lineData.GetStrechability(activeNode.position, position),
-				subsequentLineLengths,
+				lineLengths.GetLength(thisLineIndex),
 			)
-			println("Adjustment ratio",activeNode.position, "to", position, adjustmentRatio)
+			println("Adjustment ratio", activeNode.position, "to", position, adjustmentRatio)
 
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
@@ -65,7 +86,7 @@ func KnuthPlassAlgorithm(
 			}
 			thisNode := node{
 				position:     position,
-				line:         activeNode.line + 1, // Todo: should be -1 in some cases
+				line:         thisLineIndex,
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			newActiveNodes[thisNode] = true
@@ -123,109 +144,6 @@ func KnuthPlassAlgorithm(
 	return breakpointIndices, nil
 }
 
-// lineData is a data structure that facilitates computing the width, shrinkability
-// and stretchability of a line (i.e., a contiguous subsequence of Items) in O(1).
-// It incorporates the following logic:
-// - a glue item at the end of a line does not contribute to any of these quantities
-// - a penalty item only contributes if it is at the end of a line.
-// - all items before the first box in a line are ignored
-type lineData struct {
-	aggregateWidth            []int64
-	aggregateShrinkability    []int64
-	aggregateStretchibility   []int64
-	positionToNextBoxPosition map[int]int
-	items                     []Item
-}
-
-func buildLineData(items []Item) *lineData {
-	lineData := &lineData{
-		aggregateWidth:            make([]int64, len(items)+1),
-		aggregateShrinkability:    make([]int64, len(items)+1),
-		aggregateStretchibility:   make([]int64, len(items)+1),
-		positionToNextBoxPosition: make(map[int]int),
-		items:                     items,
-	}
-	lineData.aggregateWidth[0] = 0
-	lineData.aggregateShrinkability[0] = 0
-	lineData.aggregateStretchibility[0] = 0
-	for position, item := range items {
-		lineData.aggregateWidth[position+1] =
-			lineData.aggregateWidth[position] +
-				item.Width()
-		lineData.aggregateShrinkability[position+1] =
-			lineData.aggregateShrinkability[position] +
-				item.Shrinkability()
-		lineData.aggregateStretchibility[position+1] =
-			lineData.aggregateStretchibility[position] +
-				item.Stretchability()
-	}
-	itemIndex := 0
-	boxIndex := 0
-	for boxIndex < len(items) {
-		if !IsBox(items[boxIndex]) {
-			boxIndex++
-			continue
-		}
-		lineData.positionToNextBoxPosition[itemIndex] = boxIndex
-		if itemIndex == boxIndex {
-			boxIndex++
-		}
-		itemIndex++
-	}
-	return lineData
-}
-
-func (lineData *lineData) getNextBoxIndex(itemIndex int) (int, error) {
-	nextBoxIndex, ok := lineData.positionToNextBoxPosition[itemIndex]
-	if !ok {
-		return -1, errors.New("no box after this item")
-	}
-	return nextBoxIndex, nil
-}
-
-func (lineData *lineData) GetWidth(previousBreakpoint int, thisBreakpoint int) int64 {
-	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
-	if err != nil {
-		return 0
-	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	return lineData.aggregateWidth[thisBreakpoint+1] -
-		lineData.aggregateWidth[nextBoxIndex] +
-		lineData.items[thisBreakpoint].EndOfLineWidth() -
-		lineData.items[thisBreakpoint].Width()
-}
-
-func (lineData *lineData) GetShrinkability(previousBreakpoint int, thisBreakpoint int) int64 {
-	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
-	if err != nil {
-		return 0
-	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	return lineData.aggregateShrinkability[thisBreakpoint+1] -
-		lineData.aggregateShrinkability[nextBoxIndex] -
-		lineData.items[thisBreakpoint].Shrinkability()
-}
-func (lineData *lineData) GetStrechability(previousBreakpoint int, thisBreakpoint int) int64 {
-	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
-	if err != nil {
-		return 0
-	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	rawStretchability := lineData.aggregateStretchibility[thisBreakpoint+1] -
-		lineData.aggregateStretchibility[nextBoxIndex] -
-		lineData.items[thisBreakpoint].Stretchability()
-	if rawStretchability < InfiniteStretchability {
-		return rawStretchability
-	}
-	return InfiniteStretchability
-}
-
 // NoSolutionError is returned if the problem has no solution satisfying the optimality contraints
 type NoSolutionError struct {
 	// TODO: add data on which lines failed
@@ -260,7 +178,7 @@ func calculateAdjustmentRatio(
 
 type node struct {
 	position     int // NOTE: golang restrictions mean this will be the max length of items
-	line         int64
+	line         int
 	fitnessClass FitnessClass
 	// Note: total width needs to account for penalty width of the breakpoint
 }

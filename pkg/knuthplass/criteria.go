@@ -15,7 +15,7 @@ type FitnessClass int8
 // OptimalityCriteria contains all of the data to optimize
 type OptimalityCriteria interface {
 	GetMaxAdjustmentRatio() float64
-	GetLooseness() int64
+	GetLooseness() int
 	CalculateDemerits(
 		adjustmentRatio float64,
 		fitnessClass FitnessClass,
@@ -30,7 +30,7 @@ type OptimalityCriteria interface {
 // in the Knuth-Plass paper
 type TexOptimalityCriteria struct {
 	MaxAdjustmentRatio            float64 // ro in the paper
-	Looseness                     int64   // q in the paper
+	Looseness                     int     // q in the paper
 	ConsecutiveFlaggedPenaltyCost float64 // alpha in the paper
 	MismatchingFitnessClassCost   float64 // gamma in the paper
 }
@@ -39,7 +39,7 @@ func (texOptimalityCritera TexOptimalityCriteria) GetMaxAdjustmentRatio() float6
 	return texOptimalityCritera.MaxAdjustmentRatio
 }
 
-func (texOptimalityCritera TexOptimalityCriteria) GetLooseness() int64 {
+func (texOptimalityCritera TexOptimalityCriteria) GetLooseness() int {
 	return texOptimalityCritera.Looseness
 }
 
@@ -54,7 +54,7 @@ func (texOptimalityCritera TexOptimalityCriteria) CalculateDemerits(
 	if penaltyCost >= 0 {
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3)+float64(penaltyCost), 2)
 	} else if penaltyCost >= -1000000 {
-		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2) - float64(penaltyCost * penaltyCost)
+		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2) - float64(penaltyCost*penaltyCost)
 	} else {
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2)
 	}
