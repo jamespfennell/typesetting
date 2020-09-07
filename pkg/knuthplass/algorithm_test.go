@@ -22,7 +22,7 @@ func TestForcedBreaks(t *testing.T) {
 		NewPenalty(0, NegativeInfinity, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	actualBreakpoints, err := KnuthPlassAlgorithm(buildLineData(items), NewConstantLineLengths(200), criteria)
+	actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
 	if err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}
@@ -51,7 +51,7 @@ func TestBasicCase(t *testing.T) {
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	actualBreakpoints, err := KnuthPlassAlgorithm(buildLineData(items), NewConstantLineLengths(270), criteria)
+	actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(270), criteria)
 	if err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}

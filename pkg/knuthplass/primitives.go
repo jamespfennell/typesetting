@@ -166,17 +166,17 @@ func IsValidBreakpoint(preceedingItem Item, item Item) bool {
 }
 
 // ItemList is a data structure that facilitates computing the width, shrinkability
-// and stretchability of a line (i.e., a contiguous subsequence of Items) in O(1).
+// and stretchability of a lineIndex (i.e., a contiguous subsequence of Items) in O(1).
 // It incorporates the following logic:
-// - a glue item at the end of a line does not contribute to any of these quantities
-// - a penalty item only contributes if it is at the end of a line.
-// - all items before the first box in a line are ignored
+// - a glue item at the end of a lineIndex does not contribute to any of these quantities
+// - a penalty item only contributes if it is at the end of a lineIndex.
+// - all items before the first box in a lineIndex are ignored
 type ItemList struct {
-	aggregateWidth            []int64
-	aggregateShrinkability    []int64
-	aggregateStretchibility   []int64
-	positionToNextBoxPosition []int // Rename indexToNextBoxOffset
-	items                     []Item
+	aggregateWidth          []int64
+	aggregateShrinkability  []int64
+	aggregateStretchability []int64
+	positionToNextBoxOffset []int
+	items                   []Item
 }
 
 func (itemList *ItemList) Length() int {
@@ -191,28 +191,29 @@ func (itemList *ItemList) Get(index int) Item {
 }
 
 // Slice returns a subsequence of the ItemList.
-// It's analagous to sequence slicing both in terms of semantics and implementation
+// It's analogous to sequence slicing both in terms of semantics and implementation
 func (itemList *ItemList) Slice(a int, b int) *ItemList {
 	return &ItemList{
-		aggregateWidth:            itemList.aggregateWidth[a : b+1],
-		aggregateShrinkability:    itemList.aggregateShrinkability[a : b+1],
-		aggregateStretchibility:   itemList.aggregateStretchibility[a : b+1],
-		positionToNextBoxPosition: itemList.positionToNextBoxPosition[a:b],
-		items:                     itemList.items[a:b],
+		aggregateWidth:          itemList.aggregateWidth[a : b+1],
+		aggregateShrinkability:  itemList.aggregateShrinkability[a : b+1],
+		aggregateStretchability: itemList.aggregateStretchability[a : b+1],
+		positionToNextBoxOffset: itemList.positionToNextBoxOffset[a:b],
+		items:                   itemList.items[a:b],
 	}
 }
 
-func buildLineData(items []Item) *ItemList {
+// NewItemList constructs an ItemList from the provided slice of Items
+func NewItemList(items []Item) *ItemList {
 	lineData := &ItemList{
-		aggregateWidth:            make([]int64, len(items)+1),
-		aggregateShrinkability:    make([]int64, len(items)+1),
-		aggregateStretchibility:   make([]int64, len(items)+1),
-		positionToNextBoxPosition: make([]int, len(items)),
-		items:                     items,
+		aggregateWidth:          make([]int64, len(items)+1),
+		aggregateShrinkability:  make([]int64, len(items)+1),
+		aggregateStretchability: make([]int64, len(items)+1),
+		positionToNextBoxOffset: make([]int, len(items)),
+		items:                   items,
 	}
 	lineData.aggregateWidth[0] = 0
 	lineData.aggregateShrinkability[0] = 0
-	lineData.aggregateStretchibility[0] = 0
+	lineData.aggregateStretchability[0] = 0
 	for position, item := range items {
 		lineData.aggregateWidth[position+1] =
 			lineData.aggregateWidth[position] +
@@ -220,8 +221,8 @@ func buildLineData(items []Item) *ItemList {
 		lineData.aggregateShrinkability[position+1] =
 			lineData.aggregateShrinkability[position] +
 				item.Shrinkability()
-		lineData.aggregateStretchibility[position+1] =
-			lineData.aggregateStretchibility[position] +
+		lineData.aggregateStretchability[position+1] =
+			lineData.aggregateStretchability[position] +
 				item.Stretchability()
 	}
 	itemIndex := 0
@@ -231,74 +232,62 @@ func buildLineData(items []Item) *ItemList {
 			boxIndex++
 			continue
 		}
-		lineData.positionToNextBoxPosition[itemIndex] = boxIndex - itemIndex
+		lineData.positionToNextBoxOffset[itemIndex] = boxIndex - itemIndex
 		if itemIndex == boxIndex {
 			boxIndex++
 		}
 		itemIndex++
 	}
 	for itemIndex < len(items) {
-		lineData.positionToNextBoxPosition[itemIndex] = -1
+		lineData.positionToNextBoxOffset[itemIndex] = -1
 		itemIndex++
 	}
 	return lineData
 }
 
-func (lineData *ItemList) getNextBoxIndex(itemIndex int) (int, error) {
-	nextBoxIndex := lineData.positionToNextBoxPosition[itemIndex]
-	if nextBoxIndex < 0 {
-		return -1, errors.New("no box after this item")
+// FirstBoxIndex returns the index of the first box in this ItemList
+// or an error if the ItemList contains no box. It is equivalent to iterating
+// over the list and checking IsBox for each item; however, the call is O(1).
+func (itemList *ItemList) FirstBoxIndex() (int, error) {
+	nextBoxIndex := itemList.positionToNextBoxOffset[0]
+	if nextBoxIndex < 0 || nextBoxIndex >= len(itemList.items) {
+		return -1, errors.New("this ItemList contains no boxes")
 	}
-	return itemIndex + nextBoxIndex, nil
+	return nextBoxIndex, nil
 }
 
-func (lineData *ItemList) Width() int64 {
-	return lineData.GetWidth(-1, len(lineData.items)-1)
-}
-
-func (lineData *ItemList) GetWidth(previousBreakpoint int, thisBreakpoint int) int64 {
-	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
+// Width returns the width of a lineIndex consisting of elements of the ItemList.
+func (itemList *ItemList) Width() int64 {
+	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0
 	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	return lineData.aggregateWidth[thisBreakpoint+1] -
-		lineData.aggregateWidth[nextBoxIndex] +
-		lineData.items[thisBreakpoint].EndOfLineWidth() -
-		lineData.items[thisBreakpoint].Width()
+	return itemList.aggregateWidth[len(itemList.items)] -
+		itemList.aggregateWidth[nextBoxIndex] +
+		itemList.items[len(itemList.items)-1].EndOfLineWidth() -
+		itemList.items[len(itemList.items)-1].Width()
 }
 
-func (lineData *ItemList) Shrinkability() int64 {
-	return lineData.GetShrinkability(-1, len(lineData.items)-1)
-}
-
-func (lineData *ItemList) GetShrinkability(previousBreakpoint int, thisBreakpoint int) int64 {
-	nextBoxIndex, err := lineData.getNextBoxIndex(previousBreakpoint + 1)
+// Shrinkability returns the shrinkability of a lineIndex consisting of elements of the ItemList.
+func (itemList *ItemList) Shrinkability() int64 {
+	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0
 	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	return lineData.aggregateShrinkability[thisBreakpoint+1] -
-		lineData.aggregateShrinkability[nextBoxIndex] -
-		lineData.items[thisBreakpoint].Shrinkability()
+	return itemList.aggregateShrinkability[len(itemList.items)] -
+		itemList.aggregateShrinkability[nextBoxIndex] -
+		itemList.items[len(itemList.items)-1].Shrinkability()
 }
 
-func (lineData *ItemList) Stretchability() int64 {
-	thisBreakpoint := len(lineData.items) - 1
-	nextBoxIndex, err := lineData.getNextBoxIndex(0) // Rename firstBoxIndex
+// Stretchability returns the stretchability of a lineIndex consisting of elements of the ItemList.
+func (itemList *ItemList) Stretchability() int64 {
+	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0
 	}
-	if nextBoxIndex > thisBreakpoint {
-		return 0
-	}
-	rawStretchability := lineData.aggregateStretchibility[len(lineData.items)] -
-		lineData.aggregateStretchibility[nextBoxIndex] -
-		lineData.items[len(lineData.items)-1].Stretchability()
+	rawStretchability := itemList.aggregateStretchability[len(itemList.items)] -
+		itemList.aggregateStretchability[nextBoxIndex] -
+		itemList.items[len(itemList.items)-1].Stretchability()
 	if rawStretchability < InfiniteStretchability {
 		return rawStretchability
 	}

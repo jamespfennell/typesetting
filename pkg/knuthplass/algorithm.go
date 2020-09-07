@@ -32,40 +32,36 @@ func KnuthPlassAlgorithm(
 	lineLengths LineLengths,
 	criteria OptimalityCriteria,
 ) ([]int, error) {
-
-	// lineData := buildLineData(items)
-
 	// Set of nodes
 	activeNodes := make(map[node]bool)
 	newActiveNodes := make(map[node]bool)
-	firstNode := node{position: -1, line: 0, fitnessClass: 1}
+	firstNode := node{itemIndex: -1, lineIndex: 0, fitnessClass: 1}
 	activeNodes[firstNode] = true
 
 	// Data about the nodes. We don't include this data on the node object itself
 	// as that would interfere with hashing
 	nodeToPrevious := make(map[node]node)
-	// Rename nodeToTotalDemerits
-	nodeToMinDemerits := make(map[node]float64)
+	nodeToTotalDemerits := make(map[node]float64)
 
-	for position := 0; position < lineData.Length(); position++ {
-		preceedingItem := lineData.Get(position - 1)
-		item := lineData.Get(position)
-		if !IsValidBreakpoint(preceedingItem, item) {
+	for itemIndex := 0; itemIndex < lineData.Length(); itemIndex++ {
+		precedingItem := lineData.Get(itemIndex - 1)
+		item := lineData.Get(itemIndex)
+		if !IsValidBreakpoint(precedingItem, item) {
 			continue
 		}
 		for activeNode := range activeNodes {
 			// fmt.Println("here!")
-			// fmt.Println("Considering break from ", activeNode.position, "to", position)
-			// fmt.Println("Line width", lineData.GetWidth(activeNode.position, position))
-			thisLineIndex := lineLengths.GetNextIndex(activeNode.line, criteria.GetLooseness() != 0)
-			thisLineItems := lineData.Slice(activeNode.position+1, position+1)
+			// fmt.Println("Considering break from ", activeNode.itemIndex, "to", itemIndex)
+			// fmt.Println("Line width", lineData.GetWidth(activeNode.itemIndex, itemIndex))
+			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
+			thisLineItems := lineData.Slice(activeNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
 				thisLineItems.Width(),
 				thisLineItems.Shrinkability(),
 				thisLineItems.Stretchability(),
 				lineLengths.GetLength(thisLineIndex),
 			)
-			println("Adjustment ratio", activeNode.position, "to", position, adjustmentRatio)
+			println("Adjustment ratio", activeNode.itemIndex, "to", itemIndex, adjustmentRatio)
 
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
@@ -78,22 +74,23 @@ func KnuthPlassAlgorithm(
 			if item.PenaltyCost() <= NegativeInfinity {
 				delete(activeNodes, activeNode)
 			}
-			// This is the case when there is not enough material for the line.
+			// This is the case when there is not enough material for the lineIndex.
 			// We skip, but keep the node active because in a future breakpoint it may be used.
 			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
-				fmt.Println("Skipping", activeNode.position, "to", position, "(adjustment ratio too large)")
+				fmt.Println("Skipping", activeNode.itemIndex, "to", itemIndex, "(adjustment ratio too large)")
 				continue
 			}
 			thisNode := node{
-				position:     position,
-				line:         thisLineIndex,
+				itemIndex:    itemIndex,
+				lineIndex:    thisLineIndex,
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			newActiveNodes[thisNode] = true
 			// NOTE: this is wrong! The item of interest if the one pointed to be active node
+			// TODO: fix this with a test
 			preceedingItemIsFlaggedPenalty := false
-			if preceedingItem != nil {
-				preceedingItemIsFlaggedPenalty = false // preceedingItem.IsFlaggedPenalty()
+			if precedingItem != nil {
+				preceedingItemIsFlaggedPenalty = false // precedingItem.IsFlaggedPenalty()
 			}
 			demerits := criteria.CalculateDemerits(
 				adjustmentRatio,
@@ -102,17 +99,17 @@ func KnuthPlassAlgorithm(
 				item.PenaltyCost(),
 				item.IsFlaggedPenalty(),
 				preceedingItemIsFlaggedPenalty,
-			) + nodeToMinDemerits[activeNode]
-			println("Cost of going from", activeNode.position, "to", position, "is", demerits)
+			) + nodeToTotalDemerits[activeNode]
+			println("Cost of going from", activeNode.itemIndex, "to", itemIndex, "is", demerits)
 			minDemeritsSoFar := true
 			if _, nodeAlreadyEncountered := nodeToPrevious[thisNode]; nodeAlreadyEncountered {
-				minDemeritsSoFar = demerits < nodeToMinDemerits[thisNode]
+				minDemeritsSoFar = demerits < nodeToTotalDemerits[thisNode]
 			}
 			//if nodeToPrevious[thisNode] != nil {
 			//}
 			if minDemeritsSoFar {
 				nodeToPrevious[thisNode] = activeNode
-				nodeToMinDemerits[thisNode] = demerits
+				nodeToTotalDemerits[thisNode] = demerits
 			}
 		}
 		for newActiveNode := range newActiveNodes {
@@ -128,18 +125,18 @@ func KnuthPlassAlgorithm(
 	var bestNode node
 	minDemerits := float64(-1)
 	for activeNode := range activeNodes {
-		if minDemerits < 0 || nodeToMinDemerits[activeNode] < minDemerits {
-			minDemerits = nodeToMinDemerits[activeNode]
+		if minDemerits < 0 || nodeToTotalDemerits[activeNode] < minDemerits {
+			minDemerits = nodeToTotalDemerits[activeNode]
 			bestNode = activeNode
 		}
 	}
 	numBreakpoints := int64(0)
-	for thisNode := bestNode; thisNode.position != -1; thisNode = nodeToPrevious[thisNode] {
+	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = nodeToPrevious[thisNode] {
 		numBreakpoints++
 	}
 	breakpointIndices := make([]int, numBreakpoints)
-	for thisNode := bestNode; thisNode.position != -1; thisNode = nodeToPrevious[thisNode] {
-		breakpointIndices[numBreakpoints-1] = thisNode.position
+	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = nodeToPrevious[thisNode] {
+		breakpointIndices[numBreakpoints-1] = thisNode.itemIndex
 		numBreakpoints--
 	}
 	return breakpointIndices, nil
@@ -178,8 +175,7 @@ func calculateAdjustmentRatio(
 }
 
 type node struct {
-	position     int // NOTE: golang restrictions mean this will be the max length of items
-	line         int
+	itemIndex    int
+	lineIndex    int
 	fitnessClass FitnessClass
-	// Note: total width needs to account for penalty width of the breakpoint
 }

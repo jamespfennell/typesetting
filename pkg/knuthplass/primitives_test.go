@@ -60,17 +60,17 @@ func TestLineData(t *testing.T) {
 		expectedShrinkability  int64
 		expectedStretchability int64
 	}{
-		{-1, 2, 1 + 2 + 3, 10, 100},             // First line is correct
-		{-1, 3, 1 + 2 + 3, 10, 100},             // First line is correct + end glue ignored
+		{-1, 2, 1 + 2 + 3, 10, 100},             // First lineIndex is correct
+		{-1, 3, 1 + 2 + 3, 10, 100},             // First lineIndex is correct + end glue ignored
 		{0, 2, 3, 0, 0},                         // First glue ignored
 		{2, 6, 5 + 6 + 7, 30, 300},              // Penalty width counted
 		{4, 9, 10, 0, 0},                        // Glue + penalty at start ignored
-		{4, 8, 0, 0, 0},                         // No box on the line
-		{9, 10, 0, 0, 0},                        // No box on the line (end of paragraph)
+		{4, 8, 0, 0, 0},                         // No box on the lineIndex
+		{9, 10, 0, 0, 0},                        // No box on the lineIndex (end of paragraph)
 		{1, 9, 45, 140, InfiniteStretchability}, // Happy path
 	}
 
-	lineData := buildLineData(items)
+	lineData := NewItemList(items)
 	for _, params := range paramsList {
 		lineItems := lineData.Slice(params.previousBreakpoint+1, params.thisBreakpoint+1)
 
@@ -116,7 +116,7 @@ func TestLineData(t *testing.T) {
 }
 
 func TestItemListGetNextBoxIndex(t *testing.T) {
-	itemList := buildLineData([]Item{
+	itemList := NewItemList([]Item{
 		NewBox(1),
 		NewGlue(2, 10, 100),
 		NewBox(3),
@@ -130,23 +130,23 @@ func TestItemListGetNextBoxIndex(t *testing.T) {
 		NewGlue(11, 50, 600),
 	})
 	paramsList := []struct {
-		index            int
-		expectedBoxIndex int
-		expectError      bool
+		index          int
+		expectedOffset int
+		expectError    bool
 	}{
 		{0, 0, false},
-		{1, 2, false},
-		{5, 9, false},
+		{1, 1, false},
+		{5, 4, false},
 		{10, -1, true},
 	}
 	for _, params := range paramsList {
 		t.Run("", func(t *testing.T) {
-			actualNextBoxIndex, actualError := itemList.getNextBoxIndex(params.index)
+			actualOffset, actualError := itemList.Slice(params.index, 11).FirstBoxIndex()
 			isActualError := actualError != nil
 			if params.expectError != isActualError {
 				t.Errorf("Errors don't match")
 			}
-			if params.expectedBoxIndex != actualNextBoxIndex {
+			if params.expectedOffset != actualOffset {
 				t.Errorf("Index don't match")
 			}
 		})
