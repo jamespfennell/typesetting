@@ -44,13 +44,12 @@ func KnuthPlassAlgorithm(
 	// Data about the nodes. We don't include this data on the node object itself
 	// as that would interfere with hashing
 	nodeToPrevious := make(map[node]node)
+	// Rename nodeToTotalDemerits
 	nodeToMinDemerits := make(map[node]float64)
 
-	for position, item := range lineData.RawItems() {
-		var preceedingItem Item = nil
-		if position > 0 {
-			preceedingItem = lineData.RawItems()[position-1]
-		}
+	for position := 0; position < lineData.Length(); position++ {
+		preceedingItem := lineData.Get(position - 1)
+		item := lineData.Get(position)
 		if !IsValidBreakpoint(preceedingItem, item) {
 			continue
 		}
@@ -59,10 +58,11 @@ func KnuthPlassAlgorithm(
 			// fmt.Println("Considering break from ", activeNode.position, "to", position)
 			// fmt.Println("Line width", lineData.GetWidth(activeNode.position, position))
 			thisLineIndex := lineLengths.GetNextIndex(activeNode.line, criteria.GetLooseness() != 0)
+			thisLineItems := lineData.Slice(activeNode.position+1, position+1)
 			adjustmentRatio := calculateAdjustmentRatio(
-				lineData.GetWidth(activeNode.position, position),
-				lineData.GetShrinkability(activeNode.position, position),
-				lineData.GetStrechability(activeNode.position, position),
+				thisLineItems.Width(),
+				thisLineItems.Shrinkability(),
+				thisLineItems.Stretchability(),
 				lineLengths.GetLength(thisLineIndex),
 			)
 			println("Adjustment ratio", activeNode.position, "to", position, adjustmentRatio)
@@ -122,6 +122,7 @@ func KnuthPlassAlgorithm(
 		}
 	}
 	if len(activeNodes) == 0 {
+		// TODO, give something back in this case
 		return nil, &NoSolutionError{}
 	}
 	var bestNode node

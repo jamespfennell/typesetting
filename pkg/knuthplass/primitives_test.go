@@ -72,9 +72,10 @@ func TestLineData(t *testing.T) {
 
 	lineData := buildLineData(items)
 	for _, params := range paramsList {
+		lineItems := lineData.Slice(params.previousBreakpoint+1, params.thisBreakpoint+1)
+
 		t.Run("", func(t *testing.T) {
-			actualWidth := lineData.GetWidth(params.previousBreakpoint,
-				params.thisBreakpoint)
+			actualWidth := lineItems.Width()
 			if params.expectedWidth != actualWidth {
 				t.Errorf(
 					"lineData.GetWidth(%d, %d) = %d != %d",
@@ -85,11 +86,9 @@ func TestLineData(t *testing.T) {
 				)
 			}
 		})
-	}
-	for _, params := range paramsList {
+
 		t.Run("", func(t *testing.T) {
-			actualShrinkability := lineData.GetShrinkability(params.previousBreakpoint,
-				params.thisBreakpoint)
+			actualShrinkability := lineItems.Shrinkability()
 			if params.expectedShrinkability != actualShrinkability {
 				t.Errorf(
 					"lineData.GetShrinkability(%d, %d) = %d != %d",
@@ -100,11 +99,9 @@ func TestLineData(t *testing.T) {
 				)
 			}
 		})
-	}
-	for _, params := range paramsList {
+
 		t.Run("", func(t *testing.T) {
-			actualStretchability := lineData.GetStrechability(params.previousBreakpoint,
-				params.thisBreakpoint)
+			actualStretchability := lineItems.Stretchability()
 			if params.expectedStretchability != actualStretchability {
 				t.Errorf(
 					"lineData.GetStretchability(%d, %d) = %d != %d",
@@ -113,6 +110,44 @@ func TestLineData(t *testing.T) {
 					actualStretchability,
 					params.expectedStretchability,
 				)
+			}
+		})
+	}
+}
+
+func TestItemListGetNextBoxIndex(t *testing.T) {
+	itemList := buildLineData([]Item{
+		NewBox(1),
+		NewGlue(2, 10, 100),
+		NewBox(3),
+		NewGlue(4, 20, 200),
+		NewBox(5),
+		NewGlue(6, 30, 300),
+		NewPenalty(7, 0, false),
+		NewGlue(8, 40, InfiniteStretchability),
+		NewGlue(9, 50, 500),
+		NewBox(10),
+		NewGlue(11, 50, 600),
+	})
+	paramsList := []struct {
+		index            int
+		expectedBoxIndex int
+		expectError      bool
+	}{
+		{0, 0, false},
+		{1, 2, false},
+		{5, 9, false},
+		{10, -1, true},
+	}
+	for _, params := range paramsList {
+		t.Run("", func(t *testing.T) {
+			actualNextBoxIndex, actualError := itemList.getNextBoxIndex(params.index)
+			isActualError := actualError != nil
+			if params.expectError != isActualError {
+				t.Errorf("Errors don't match")
+			}
+			if params.expectedBoxIndex != actualNextBoxIndex {
+				t.Errorf("Index don't match")
 			}
 		})
 	}
