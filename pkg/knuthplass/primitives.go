@@ -179,6 +179,10 @@ type ItemList struct {
 	items                     []Item
 }
 
+func (itemList *ItemList) RawItems() []Item {
+	return itemList.items
+}
+
 func buildLineData(items []Item) *ItemList {
 	lineData := &ItemList{
 		aggregateWidth:            make([]int64, len(items)+1),

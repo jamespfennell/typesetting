@@ -28,12 +28,12 @@ func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequen
 }
 
 func KnuthPlassAlgorithm(
-	items []Item,
+	lineData *ItemList,
 	lineLengths LineLengths,
 	criteria OptimalityCriteria,
 ) ([]int, error) {
 
-	lineData := buildLineData(items)
+	// lineData := buildLineData(items)
 
 	// Set of nodes
 	activeNodes := make(map[node]bool)
@@ -46,10 +46,10 @@ func KnuthPlassAlgorithm(
 	nodeToPrevious := make(map[node]node)
 	nodeToMinDemerits := make(map[node]float64)
 
-	for position, item := range items {
+	for position, item := range lineData.RawItems() {
 		var preceedingItem Item = nil
 		if position > 0 {
-			preceedingItem = items[position-1]
+			preceedingItem = lineData.RawItems()[position-1]
 		}
 		if !IsValidBreakpoint(preceedingItem, item) {
 			continue
@@ -75,7 +75,7 @@ func KnuthPlassAlgorithm(
 				continue
 			}
 			// We must add a break here, in which case previous active nodes are deleted
-			if items[position].PenaltyCost() <= NegativeInfinity {
+			if item.PenaltyCost() <= NegativeInfinity {
 				delete(activeNodes, activeNode)
 			}
 			// This is the case when there is not enough material for the line.
