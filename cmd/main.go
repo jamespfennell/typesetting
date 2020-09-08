@@ -10,7 +10,6 @@ func test(item knuthplass.Item) {
 	fmt.Println("inspecting item")
 	fmt.Println("width:", item.Width())
 	fmt.Println("shrinkability:", item.Shrinkability())
-	fmt.Println("Is penalty?", knuthplass.IsPenalty(item))
 }
 func main() {
 	box := knuthplass.NewBox(40)

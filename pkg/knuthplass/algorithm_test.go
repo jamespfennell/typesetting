@@ -10,16 +10,16 @@ func TestForcedBreaks(t *testing.T) {
 		NewBox(100),
 		NewGlue(10, 5, 5),
 		NewBox(50),
-		NewPenalty(0, NegativeInfinity, false),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
 		NewBox(60),
 		NewGlue(10, 5, 5),
 		NewBox(10),
 		NewGlue(10, 5, 5),
 		NewBox(40),
-		NewPenalty(0, NegativeInfinity, false),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
 		NewBox(40),
 		NewGlue(0, 0, 100000),
-		NewPenalty(0, NegativeInfinity, false),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
 	actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
@@ -47,7 +47,7 @@ func TestBasicCase(t *testing.T) {
 		NewGlue(20, 7, 20),
 		NewBox(60),
 		NewGlue(0, 0, InfiniteStretchability),
-		NewPenalty(0, NegativeInfinity, false),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}

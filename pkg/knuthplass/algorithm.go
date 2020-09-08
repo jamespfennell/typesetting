@@ -5,30 +5,30 @@ import (
 )
 
 type LineLengths struct {
-	initiaLengths     []int64
+	initialLengths    []int64
 	subsequentLengths int64
 }
 
 func NewConstantLineLengths(constantLength int64) LineLengths {
-	return LineLengths{initiaLengths: []int64{}, subsequentLengths: constantLength}
+	return LineLengths{initialLengths: []int64{}, subsequentLengths: constantLength}
 }
 
 func (lineLengths *LineLengths) GetLength(lineIndex int) int64 {
-	if lineIndex < len(lineLengths.initiaLengths) {
-		return lineLengths.initiaLengths[lineIndex]
+	if lineIndex < len(lineLengths.initialLengths) {
+		return lineLengths.initialLengths[lineIndex]
 	}
 	return lineLengths.subsequentLengths
 }
 
 func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequentLines bool) int {
-	if distinguishSubsequentLines || lineIndex < len(lineLengths.initiaLengths) {
+	if distinguishSubsequentLines || lineIndex < len(lineLengths.initialLengths) {
 		return lineIndex + 1
 	}
 	return lineIndex
 }
 
 func KnuthPlassAlgorithm(
-	lineData *ItemList,
+	itemList *ItemList,
 	lineLengths LineLengths,
 	criteria OptimalityCriteria,
 ) ([]int, error) {
@@ -43,18 +43,18 @@ func KnuthPlassAlgorithm(
 	nodeToPrevious := make(map[node]node)
 	nodeToTotalDemerits := make(map[node]float64)
 
-	for itemIndex := 0; itemIndex < lineData.Length(); itemIndex++ {
-		precedingItem := lineData.Get(itemIndex - 1)
-		item := lineData.Get(itemIndex)
-		if !IsValidBreakpoint(precedingItem, item) {
+	for itemIndex := 0; itemIndex < itemList.Length(); itemIndex++ {
+		precedingItem := itemList.Get(itemIndex - 1)
+		item := itemList.Get(itemIndex)
+		if !item.IsValidBreakpoint(precedingItem) {
 			continue
 		}
 		for activeNode := range activeNodes {
 			// fmt.Println("here!")
 			// fmt.Println("Considering break from ", activeNode.itemIndex, "to", itemIndex)
-			// fmt.Println("Line width", lineData.GetWidth(activeNode.itemIndex, itemIndex))
+			// fmt.Println("Line width", itemList.GetWidth(activeNode.itemIndex, itemIndex))
 			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
-			thisLineItems := lineData.Slice(activeNode.itemIndex+1, itemIndex+1)
+			thisLineItems := itemList.Slice(activeNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
 				thisLineItems.Width(),
 				thisLineItems.Shrinkability(),
@@ -71,10 +71,10 @@ func KnuthPlassAlgorithm(
 				continue
 			}
 			// We must add a break here, in which case previous active nodes are deleted
-			if item.PenaltyCost() <= NegativeInfinity {
+			if item.BreakpointPenalty() <= NegInfBreakpointPenalty {
 				delete(activeNodes, activeNode)
 			}
-			// This is the case when there is not enough material for the lineIndex.
+			// This is the case when there is not enough material for the line.
 			// We skip, but keep the node active because in a future breakpoint it may be used.
 			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
 				fmt.Println("Skipping", activeNode.itemIndex, "to", itemIndex, "(adjustment ratio too large)")
@@ -88,17 +88,17 @@ func KnuthPlassAlgorithm(
 			newActiveNodes[thisNode] = true
 			// NOTE: this is wrong! The item of interest if the one pointed to be active node
 			// TODO: fix this with a test
-			preceedingItemIsFlaggedPenalty := false
+			precedingItemIsFlaggedPenalty := false
 			if precedingItem != nil {
-				preceedingItemIsFlaggedPenalty = false // precedingItem.IsFlaggedPenalty()
+				precedingItemIsFlaggedPenalty = false // precedingItem.IsFlaggedBreakpoint()
 			}
 			demerits := criteria.CalculateDemerits(
 				adjustmentRatio,
 				thisNode.fitnessClass,
 				activeNode.fitnessClass,
-				item.PenaltyCost(),
-				item.IsFlaggedPenalty(),
-				preceedingItemIsFlaggedPenalty,
+				item.BreakpointPenalty(),
+				item.IsFlaggedBreakpoint(),
+				precedingItemIsFlaggedPenalty,
 			) + nodeToTotalDemerits[activeNode]
 			println("Cost of going from", activeNode.itemIndex, "to", itemIndex, "is", demerits)
 			minDemeritsSoFar := true
@@ -142,7 +142,7 @@ func KnuthPlassAlgorithm(
 	return breakpointIndices, nil
 }
 
-// NoSolutionError is returned if the problem has no solution satisfying the optimality contraints
+// NoSolutionError is returned if the problem has no solution satisfying the optimality constraints
 type NoSolutionError struct {
 	// TODO: add data on which lines failed
 }

@@ -20,14 +20,14 @@ func TestIsValidBreakpoint(t *testing.T) {
 		{&box{}, &penalty{}, true},
 		{&glue{}, &penalty{}, true},
 		{&penalty{}, &penalty{}, true},
-		{nil, &penalty{cost: 20000}, false},
-		{&box{}, &penalty{cost: 20000}, false},
-		{&glue{}, &penalty{cost: 20000}, false},
-		{&penalty{}, &penalty{cost: 20000}, false},
+		{nil, &penalty{breakpointPenalty: 20000}, false},
+		{&box{}, &penalty{breakpointPenalty: 20000}, false},
+		{&glue{}, &penalty{breakpointPenalty: 20000}, false},
+		{&penalty{}, &penalty{breakpointPenalty: 20000}, false},
 	}
 	for _, params := range paramsList {
 		t.Run("", func(t *testing.T) {
-			if IsValidBreakpoint(params.preceedingItem, params.item) != params.isValidBreakpoint {
+			if params.item.IsValidBreakpoint(params.preceedingItem) != params.isValidBreakpoint {
 				t.Errorf(
 					"IsValidBreakpoint(%T, %T) != %t",
 					params.preceedingItem,
@@ -63,7 +63,7 @@ func TestLineData(t *testing.T) {
 		{-1, 2, 1 + 2 + 3, 10, 100},             // First lineIndex is correct
 		{-1, 3, 1 + 2 + 3, 10, 100},             // First lineIndex is correct + end glue ignored
 		{0, 2, 3, 0, 0},                         // First glue ignored
-		{2, 6, 5 + 6 + 7, 30, 300},              // Penalty width counted
+		{2, 6, 5 + 6 + 7, 30, 300},              // BreakpointPenalty width counted
 		{4, 9, 10, 0, 0},                        // Glue + penalty at start ignored
 		{4, 8, 0, 0, 0},                         // No box on the lineIndex
 		{9, 10, 0, 0, 0},                        // No box on the lineIndex (end of paragraph)
