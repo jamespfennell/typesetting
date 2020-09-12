@@ -1,11 +1,11 @@
 package knuthplass
 
 import (
-	"fmt"
 	"testing"
 )
 
-// Test forbidden breaks
+// Test forbidden breaks <- easy
+// Test flagged penalty cost <- easy
 
 func TestForcedBreaks(t *testing.T) {
 	items := []Item{
@@ -13,30 +13,22 @@ func TestForcedBreaks(t *testing.T) {
 		NewGlue(10, 5, 5),
 		NewBox(50),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
+
 		NewBox(60),
 		NewGlue(10, 5, 5),
 		NewBox(10),
 		NewGlue(10, 5, 5),
 		NewBox(40),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
+
 		NewBox(40),
 		NewGlue(0, 0, 100000),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
-	if err != nil {
-		t.Errorf("Solvable case marked as unsolved!")
-	}
-	expectedBreakpoints := []int{
-		3,
-		9,
-		12,
-	}
-	if !listEqual(expectedBreakpoints, actualBreakpoints) {
-		t.Errorf("Results not equal!")
-		fmt.Println("Actual breakpoints", actualBreakpoints)
-	}
+	result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
+	expectedBreakpoints := []int{3, 9, 12}
+	testResult(t, expectedBreakpoints, result)
 }
 
 func TestBasicCase(t *testing.T) {
@@ -46,21 +38,16 @@ func TestBasicCase(t *testing.T) {
 		NewBox(60),
 		NewGlue(20, 7, 20),
 		NewBox(60),
-		NewGlue(20, 7, 20),
+		NewGlue(20, 7, 20), // Expected first breakpoint
+
 		NewBox(60),
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(270), criteria)
-	if err != nil {
-		t.Errorf("Solvable case marked as unsolved!")
-	}
-	if !listEqual(expectedBreakpoints, actualBreakpoints) {
-		fmt.Println("Actual breakpoints", actualBreakpoints)
-		t.Errorf("Results not equal!")
-	}
+	result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(270), criteria)
+	testResult(t, expectedBreakpoints, result)
 }
 
 func TestDifferentClasses(t *testing.T) {
@@ -91,7 +78,7 @@ func TestDifferentClasses(t *testing.T) {
 		mismatchingFitnessClassCost float64
 	}{
 		{"No mismatching fitness class cost", []int{3, 12}, 0},
-		{"Large mismatching fitness class cost", []int{3, 9, 12}, 0},
+		{"Large mismatching fitness class cost", []int{3, 9, 12}, 20000},
 	}
 	for _, params := range paramsList {
 		t.Run(params.name, func(t *testing.T) {
@@ -99,16 +86,22 @@ func TestDifferentClasses(t *testing.T) {
 				MaxAdjustmentRatio:          10,
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
-			actualBreakpoints, err := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
-			if err != nil {
-				t.Errorf("Solvable case marked as unsolved!")
-			}
-			if !listEqual(params.expectedBreakpoints, actualBreakpoints) {
-				fmt.Println("Expected breakpoints", params.expectedBreakpoints)
-				fmt.Println("Actual breakpoints", actualBreakpoints)
-				t.Errorf("Results not equal!")
-			}
+			result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
+			testResult(t, params.expectedBreakpoints, result)
 		})
+	}
+}
+
+func testResult(t *testing.T, expectedBreakpoints []int, result BreakpointsResult) {
+	if result.Err != nil {
+		t.Errorf("Solvable case marked as unsolved!")
+	}
+	if !listEqual(expectedBreakpoints, result.breakpoints) {
+		t.Errorf("Breakpoints not equal!")
+		t.Errorf("Expected = %v != %v = actual", expectedBreakpoints, result.breakpoints)
+		result.logger.AdjustmentRatiosTable.Print()
+		result.logger.LineDemeritsTable.Print()
+		result.logger.TotalDemeritsTable.Print()
 	}
 }
 

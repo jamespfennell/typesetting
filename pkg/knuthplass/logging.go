@@ -86,7 +86,7 @@ func (table *NodeNodeTable) Print() {
 
 	fmt.Println(headerLine)
 	for _, rowKey := range table.nodeTracker.nodesInOrder {
-		line := fmt.Sprintf(" | %10s | ",  buildNodeLabel(rowKey))
+		line := fmt.Sprintf(" | %10s | ", buildNodeLabel(rowKey))
 		rowHasValues := false
 		for _, colKey := range table.nodeTracker.nodesInOrder {
 			if colKeyToColWidth[colKey] < 0 {
@@ -95,10 +95,10 @@ func (table *NodeNodeTable) Print() {
 			value, hasValue := table.data[rowKey][colKey]
 			if hasValue {
 				stringValue := fmt.Sprintf("%6.2f", value)
-				line = line + fmt.Sprintf(" %*s |",  colKeyToColWidth[colKey], stringValue)
+				line = line + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey], stringValue)
 				rowHasValues = true
 			} else {
-				line = line + fmt.Sprintf(" %*s |",  colKeyToColWidth[colKey], "")
+				line = line + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey], "")
 			}
 		}
 		if !rowHasValues {

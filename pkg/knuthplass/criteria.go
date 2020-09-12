@@ -1,7 +1,6 @@
 package knuthplass
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -36,16 +35,16 @@ type TexOptimalityCriteria struct {
 	MismatchingFitnessClassCost   float64 // gamma in the paper
 }
 
-func (texOptimalityCritera TexOptimalityCriteria) GetMaxAdjustmentRatio() float64 {
-	return texOptimalityCritera.MaxAdjustmentRatio
+func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() float64 {
+	return criteria.MaxAdjustmentRatio
 }
 
-func (texOptimalityCritera TexOptimalityCriteria) GetLooseness() int {
-	return texOptimalityCritera.Looseness
+func (criteria TexOptimalityCriteria) GetLooseness() int {
+	return criteria.Looseness
 }
 
 // CalculateDemerits does...
-func (texOptimalityCritera TexOptimalityCriteria) CalculateDemerits(
+func (criteria TexOptimalityCriteria) CalculateDemerits(
 	adjustmentRatio float64,
 	fitnessClass FitnessClass,
 	prevFitnessClass FitnessClass,
@@ -60,17 +59,17 @@ func (texOptimalityCritera TexOptimalityCriteria) CalculateDemerits(
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2)
 	}
 	if isFlaggedPenalty && isPrevFlaggedPenalty {
-		demerits = demerits + texOptimalityCritera.ConsecutiveFlaggedPenaltyCost
+		demerits = demerits + criteria.ConsecutiveFlaggedPenaltyCost
 	}
 	if fitnessClass-prevFitnessClass > 1 || fitnessClass-prevFitnessClass < -1 {
-		fmt.Println("Adding penalty for mismatching fitness class", adjustmentRatio)
-		demerits = demerits + texOptimalityCritera.MismatchingFitnessClassCost
+		// fmt.Println("Adding penalty for mismatching fitness class", adjustmentRatio)
+		demerits = demerits + criteria.MismatchingFitnessClassCost
 	}
 	return
 }
 
 func (TexOptimalityCriteria) CalculateFitnessClass(adjustmentRatio float64) FitnessClass {
-	// Binary search esentially...
+	// Binary search essentially...
 	if adjustmentRatio <= 0.5 {
 		if adjustmentRatio <= -0.5 {
 			return 0
