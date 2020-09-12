@@ -1,8 +1,6 @@
 package knuthplass
 
-import (
-	"fmt"
-)
+import "fmt"
 
 type LineLengths struct {
 	initialLengths    []int64
@@ -27,6 +25,56 @@ func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequen
 	return lineIndex
 }
 
+type skipReason string
+
+const (
+	notSkipped           skipReason = "N"
+	smallAdjustmentRatio skipReason = "S"
+	largeAdjustmentRatio skipReason = "L"
+)
+
+type breakpointLogger struct {
+	nodesInOrder     []node
+	nodesSeen        map[node]bool
+	adjustmentRatios map[node]map[node]float64
+	skipReasons      map[node]map[node]skipReason
+	lineDemerits     map[node]map[node]float64
+	totalDemerits    map[node]map[node]float64
+}
+
+func (logger *breakpointLogger) initNode(thisNode node) {
+	if _, nodeSeen := logger.nodesSeen[thisNode]; nodeSeen {
+		return
+	}
+	logger.nodesSeen[thisNode] = true
+	logger.nodesInOrder = append(logger.nodesInOrder, thisNode)
+	logger.adjustmentRatios[thisNode] = make(map[node]float64)
+	logger.skipReasons[thisNode] = make(map[node]skipReason)
+	logger.lineDemerits[thisNode] = make(map[node]float64)
+	logger.totalDemerits[thisNode] = make(map[node]float64)
+}
+
+func (logger *breakpointLogger) printTable() {
+	headerLine := fmt.Sprintf(" | %10s | ", "")
+	for _, node1 := range logger.nodesInOrder {
+		headerLine = headerLine + fmt.Sprintf("%9d |", node1.itemIndex)
+	}
+	fmt.Println(headerLine)
+	for _, node1 := range logger.nodesInOrder {
+		line := fmt.Sprintf(" | %10d | ", node1.itemIndex)
+		for _, node2 := range logger.nodesInOrder {
+			adjustmentRatio, valid := logger.adjustmentRatios[node1][node2]
+			if !valid {
+				line = line + fmt.Sprintf("%10s|", "")
+			} else {
+				line = line + fmt.Sprintf(" %6.2f %s |", adjustmentRatio, logger.skipReasons[node1][node2])
+			}
+		}
+		fmt.Println(line)
+	}
+	fmt.Println("Dumping table")
+}
+
 func KnuthPlassAlgorithm(
 	itemList *ItemList,
 	lineLengths LineLengths,
@@ -42,6 +90,9 @@ func KnuthPlassAlgorithm(
 	// as that would interfere with hashing
 	nodeToPrevious := make(map[node]node)
 	nodeToTotalDemerits := make(map[node]float64)
+
+	var loggingEnabled bool = true
+	logger := NewBreakpointLogger()
 
 	for itemIndex := 0; itemIndex < itemList.Length(); itemIndex++ {
 		precedingItem := itemList.Get(itemIndex - 1)
@@ -61,12 +112,18 @@ func KnuthPlassAlgorithm(
 				thisLineItems.Stretchability(),
 				lineLengths.GetLength(thisLineIndex),
 			)
-			println("Adjustment ratio", activeNode.itemIndex, "to", itemIndex, adjustmentRatio)
+			thisNode := node{
+				itemIndex:    itemIndex,
+				lineIndex:    thisLineIndex,
+				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
+			}
+			if loggingEnabled {
+				logger.AdjustmentRatiosTable.AddCell(activeNode, thisNode, adjustmentRatio)
+			}
 
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
 			if adjustmentRatio < -1 {
-				println("Skipping, adjustment ratio too small", adjustmentRatio)
 				delete(activeNodes, activeNode)
 				continue
 			}
@@ -77,14 +134,9 @@ func KnuthPlassAlgorithm(
 			// This is the case when there is not enough material for the line.
 			// We skip, but keep the node active because in a future breakpoint it may be used.
 			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
-				fmt.Println("Skipping", activeNode.itemIndex, "to", itemIndex, "(adjustment ratio too large)")
 				continue
 			}
-			thisNode := node{
-				itemIndex:    itemIndex,
-				lineIndex:    thisLineIndex,
-				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
-			}
+
 			newActiveNodes[thisNode] = true
 			// NOTE: this is wrong! The item of interest if the one pointed to be active node
 			// TODO: fix this with a test
@@ -92,7 +144,7 @@ func KnuthPlassAlgorithm(
 			if precedingItem != nil {
 				precedingItemIsFlaggedPenalty = false // precedingItem.IsFlaggedBreakpoint()
 			}
-			demerits := criteria.CalculateDemerits(
+			totalDemerits := criteria.CalculateDemerits(
 				adjustmentRatio,
 				thisNode.fitnessClass,
 				activeNode.fitnessClass,
@@ -100,24 +152,27 @@ func KnuthPlassAlgorithm(
 				item.IsFlaggedBreakpoint(),
 				precedingItemIsFlaggedPenalty,
 			) + nodeToTotalDemerits[activeNode]
-			println("Cost of going from", activeNode.itemIndex, "to", itemIndex, "is", demerits)
-			minDemeritsSoFar := true
-			if _, nodeAlreadyEncountered := nodeToPrevious[thisNode]; nodeAlreadyEncountered {
-				minDemeritsSoFar = demerits < nodeToTotalDemerits[thisNode]
+			if loggingEnabled {
+				logger.LineDemeritsTable.AddCell(activeNode, thisNode, totalDemerits-nodeToTotalDemerits[activeNode])
+				logger.TotalDemeritsTable.AddCell(activeNode, thisNode, totalDemerits)
 			}
-			//if nodeToPrevious[thisNode] != nil {
-			//}
-			if minDemeritsSoFar {
+			smallestTotalDemeritsSoFar := true
+			if _, nodeAlreadyEncountered := nodeToPrevious[thisNode]; nodeAlreadyEncountered {
+				smallestTotalDemeritsSoFar = totalDemerits < nodeToTotalDemerits[thisNode]
+			}
+			if smallestTotalDemeritsSoFar {
 				nodeToPrevious[thisNode] = activeNode
-				nodeToTotalDemerits[thisNode] = demerits
+				nodeToTotalDemerits[thisNode] = totalDemerits
 			}
 		}
 		for newActiveNode := range newActiveNodes {
-			// fmt.Println("Adding new active nodes")
 			delete(newActiveNodes, newActiveNode)
 			activeNodes[newActiveNode] = true
 		}
 	}
+	logger.AdjustmentRatiosTable.Print()
+	logger.LineDemeritsTable.Print()
+	logger.TotalDemeritsTable.Print()
 	if len(activeNodes) == 0 {
 		// TODO, give something back in this case
 		return nil, &NoSolutionError{}

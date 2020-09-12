@@ -1,30 +1,25 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/jamespfennell/typesetting/pkg/knuthplass"
 )
 
-func test(item knuthplass.Item) {
-	fmt.Println("inspecting item")
-	fmt.Println("width:", item.Width())
-	fmt.Println("shrinkability:", item.Shrinkability())
-}
 func main() {
-	box := knuthplass.NewBox(40)
-	fmt.Println(box)
-	fmt.Println(box.Width())
-	test(box)
 
-	penalty := knuthplass.NewPenalty(40, 1, false)
-	test(penalty)
+	items := []knuthplass.Item{
+		knuthplass.NewBox(60),
+		knuthplass.NewGlue(20, 7, 20),
+		knuthplass.NewBox(60),
+		knuthplass.NewGlue(20, 7, 20),
+		knuthplass.NewBox(60),
+		knuthplass.NewGlue(20, 7, 20),
+		knuthplass.NewBox(60),
+		knuthplass.NewGlue(0, 0, knuthplass.InfiniteStretchability),
+		knuthplass.NewPenalty(0, knuthplass.NegInfBreakpointPenalty, false),
+	}
+	// expectedBreakpoints := []int{5, 8}
+	criteria := knuthplass.TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
+	// actualBreakpoints, err :=
+	knuthplass.KnuthPlassAlgorithm(knuthplass.NewItemList(items), knuthplass.NewConstantLineLengths(270), criteria)
 
-	var items = []knuthplass.Item{}
-	items = append(items, box, penalty)
-	fmt.Println(items)
-
-	var criteria knuthplass.OptimalityCriteria
-	criteria = &knuthplass.TexOptimalityCriteria{}
-	fmt.Println(criteria)
 }

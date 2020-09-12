@@ -1,6 +1,7 @@
 package knuthplass
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -53,7 +54,7 @@ func (texOptimalityCritera TexOptimalityCriteria) CalculateDemerits(
 	isPrevFlaggedPenalty bool) (demerits float64) {
 	if penaltyCost >= 0 {
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3)+float64(penaltyCost), 2)
-	} else if penaltyCost >= -1000000 {
+	} else if penaltyCost > NegInfBreakpointPenalty {
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2) - float64(penaltyCost*penaltyCost)
 	} else {
 		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2)
@@ -62,6 +63,7 @@ func (texOptimalityCritera TexOptimalityCriteria) CalculateDemerits(
 		demerits = demerits + texOptimalityCritera.ConsecutiveFlaggedPenaltyCost
 	}
 	if fitnessClass-prevFitnessClass > 1 || fitnessClass-prevFitnessClass < -1 {
+		fmt.Println("Adding penalty for mismatching fitness class", adjustmentRatio)
 		demerits = demerits + texOptimalityCritera.MismatchingFitnessClassCost
 	}
 	return
