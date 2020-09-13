@@ -59,7 +59,7 @@ func (table *NodeNodeTable) AddCell(rowKey node, colKey node, value float64) {
 }
 
 func (table *NodeNodeTable) Print() {
-	fmt.Println(fmt.Sprintf("---[ %s ]---", table.name))
+	fmt.Println(fmt.Sprintf(" +---[ %s ]---", table.name))
 	headerLine := fmt.Sprintf(" | %10s | ", "")
 
 	colKeyToColWidth := make(map[node]int)
@@ -106,8 +106,9 @@ func (table *NodeNodeTable) Print() {
 		}
 		fmt.Println(line)
 	}
-	fmt.Println("Node key: [item index]/[line index]/[fitness class]. Line index may...")
-	fmt.Println("Dumping table")
+	fmt.Println(" +----")
+	fmt.Println(" Node key: [item index]/[line index]/[fitness class]. Line index may...")
+	fmt.Println()
 }
 
 func buildNodeLabel(node node) string {

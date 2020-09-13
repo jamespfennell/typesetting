@@ -1,5 +1,5 @@
 // Package knuthplass contains an implementation of the Knuth-Plass line breaking algorithm, as well as definitions
-// for all data structures needed to use it.
+// for the data structures needed to use it.
 package knuthplass
 
 type LineLengths struct {
@@ -34,11 +34,11 @@ type CalculateBreakpointsResult struct {
 	Breakpoints []int
 
 	// Err contains an error if the Knuth-Plass problem could not be solved subject to the provided constraints.
-	Err         error
+	Err error
 
 	// Logger contains a BreakpointLogger with results of the internal calculations performed during the function.
 	// If the enableLogging parameter to CalculateBreakpoints was false, the logger will be nil.
-	Logger      *BreakpointLogger
+	Logger *BreakpointLogger
 }
 
 // CalculateBreakpoints is an implementation of the Knuth-Plass algorithm. It uses the algorithm to find the optimal
@@ -64,7 +64,7 @@ func CalculateBreakpoints(
 ) CalculateBreakpointsResult {
 	// Active nodes is used as a set of nodes; the value is ignored.
 	activeNodes := make(map[node]bool)
-	firstNode := node{itemIndex: -1, lineIndex: 0, fitnessClass: 1}
+	firstNode := node{itemIndex: -1, lineIndex: -1, fitnessClass: 1}
 	activeNodes[firstNode] = true
 
 	// Data about the nodes. We don't include this data on the node object itself as that would interfere with hashing.
@@ -221,13 +221,11 @@ func calculateAdjustmentRatio(
 	switch {
 	case lineWidth > targetLineWidth:
 		// Division by 0, inf is allowed
-		// fmt.Println("Why shrinking?", lineWidth, targetLineWidth, lineShrinkability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
 	case lineWidth < targetLineWidth:
 		if lineStretchability == InfiniteStretchability {
 			return 0
 		}
-		// fmt.Println("Stretching", lineWidth, targetLineWidth, lineStretchability)
 		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
 	default:
 		return 0

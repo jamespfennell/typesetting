@@ -4,11 +4,108 @@ import (
 	"testing"
 )
 
-// Test forbidden breaks <- easy
-// Test variable line lengths: 200, 200, 80,...
-// Test setting small lines with too big a box -> no infinite loop
-// No solution because force breaks make the adjustment ratio too big
 // A large "happy case" test with many lines
+
+func TestVariableLineLengths(t *testing.T) {
+	lineLengths := LineLengths{
+		initialLengths:    []int64{100, 200, 150},
+		subsequentLengths: 50,
+	}
+	items := []Item{
+		NewBox(50),
+		NewGlue(10, 5, 5),
+		NewBox(40),
+		NewGlue(10, 5, 5),
+
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(90),
+		NewGlue(10, 5, 5),
+
+		NewBox(50),
+		NewGlue(10, 5, 5),
+		NewBox(90),
+		NewGlue(10, 5, 5),
+
+		NewBox(20),
+		NewGlue(10, 5, 5),
+		NewBox(20),
+		NewGlue(10, 5, 5),
+
+		NewBox(20),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
+	}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
+	result := CalculateBreakpoints(NewItemList(items), lineLengths, criteria, true)
+	verifyResult(t, []int{3, 7, 11, 15, 18}, result)
+}
+
+func TestBoxTooBig(t *testing.T) {
+	items := []Item{
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
+	}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, true)
+	if result.Err == nil {
+		t.Error("Expected error, received none")
+	}
+}
+
+func TestAdjustmentRatioTooBig(t *testing.T) {
+	items := []Item{
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
+	}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 1}
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(230), criteria, true)
+	if result.Err == nil {
+		t.Error("Expected error, received none")
+	}
+}
+
+func TestForbiddenBreaks(t *testing.T) {
+	paramsList := []struct {
+		name                string
+		penalty             int64
+		expectedBreakpoints []int
+	}{
+		{"No penalty", 0, []int{5, 9}},
+		{"Infinite penalty", PosInfBreakpointPenalty, []int{3, 9}},
+	}
+	for _, params := range paramsList {
+		t.Run(params.name, func(t *testing.T) {
+			items := []Item{
+				NewBox(100),
+				NewGlue(10, 5, 5),
+				NewBox(10),
+				NewGlue(10, 5, 5), // Optimal breakpoint, if penalty=+Inf
+
+				NewBox(10),
+				NewPenalty(0, params.penalty, false), // Optimal breakpoint, if penalty=0
+
+				NewGlue(10, 5, 5),
+				NewBox(10),
+				NewGlue(0, 0, 100000),
+				NewPenalty(0, NegInfBreakpointPenalty, false),
+			}
+			criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(140), criteria, true)
+			verifyResult(t, params.expectedBreakpoints, result)
+		})
+	}
+}
 
 func TestForcedBreaks(t *testing.T) {
 	items := []Item{
@@ -31,7 +128,7 @@ func TestForcedBreaks(t *testing.T) {
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
 	expectedBreakpoints := []int{3, 9, 12}
-	testResult(t, expectedBreakpoints, result)
+	verifyResult(t, expectedBreakpoints, result)
 }
 
 func TestBasicCase(t *testing.T) {
@@ -50,7 +147,7 @@ func TestBasicCase(t *testing.T) {
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, true)
-	testResult(t, expectedBreakpoints, result)
+	verifyResult(t, expectedBreakpoints, result)
 }
 
 func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
@@ -91,7 +188,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 			}
 			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria, true)
 			_ = result
-			testResult(t, params.expectedBreakpoints, result)
+			verifyResult(t, params.expectedBreakpoints, result)
 		})
 	}
 }
@@ -133,12 +230,12 @@ func TestDifferentClasses(t *testing.T) {
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
 			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
-			testResult(t, params.expectedBreakpoints, result)
+			verifyResult(t, params.expectedBreakpoints, result)
 		})
 	}
 }
 
-func testResult(t *testing.T, expectedBreakpoints []int, result CalculateBreakpointsResult) {
+func verifyResult(t *testing.T, expectedBreakpoints []int, result CalculateBreakpointsResult) {
 	if result.Err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}
