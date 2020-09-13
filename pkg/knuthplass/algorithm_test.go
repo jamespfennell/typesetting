@@ -7,6 +7,8 @@ import (
 // Test forbidden breaks <- easy
 // Test variable line lengths: 200, 200, 80,...
 // Test setting small lines with too big a box -> no infinite loop
+// No solution because force breaks make the adjustment ratio too big
+// A large "happy case" test with many lines
 
 func TestForcedBreaks(t *testing.T) {
 	items := []Item{
@@ -27,7 +29,7 @@ func TestForcedBreaks(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
 	expectedBreakpoints := []int{3, 9, 12}
 	testResult(t, expectedBreakpoints, result)
 }
@@ -47,16 +49,16 @@ func TestBasicCase(t *testing.T) {
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, true)
 	testResult(t, expectedBreakpoints, result)
 }
 
 func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 	// Each block has width 120, or 100 if it comes at the end of a line. It can break in the middle for free, or
 	// at the end for free, but the end break will be a flagged penalty. In this test we have a line length of 340,
-	// leading to an optimal line-setting of 3 lines: (3 blocks, 3 blocks, 1 block). However the two breakpoints here
+	// leading to an optimal line-setting of 3 lines: (3 blocks, 3 blocks, 1 block). However the two Breakpoints here
 	// are flagged. By assessing a large cost for the flagged penalty, we test that the algorithm will not choose this
-	// no-longer-optimal list of breakpoints.
+	// no-longer-optimal list of Breakpoints.
 	block := []Item{
 		NewBox(40),
 		NewGlue(20, 12, 20),
@@ -87,7 +89,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 				MaxAdjustmentRatio:            10,
 				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
 			}
-			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria, true)
 			_ = result
 			testResult(t, params.expectedBreakpoints, result)
 		})
@@ -130,7 +132,7 @@ func TestDifferentClasses(t *testing.T) {
 				MaxAdjustmentRatio:          10,
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
-			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
 			testResult(t, params.expectedBreakpoints, result)
 		})
 	}
@@ -140,12 +142,12 @@ func testResult(t *testing.T, expectedBreakpoints []int, result CalculateBreakpo
 	if result.Err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}
-	if !listEqual(expectedBreakpoints, result.breakpoints) {
+	if !listEqual(expectedBreakpoints, result.Breakpoints) {
 		t.Errorf("Breakpoints not equal!")
-		t.Errorf("Expected = %v != %v = actual", expectedBreakpoints, result.breakpoints)
-		result.logger.AdjustmentRatiosTable.Print()
-		result.logger.LineDemeritsTable.Print()
-		result.logger.TotalDemeritsTable.Print()
+		t.Errorf("Expected = %v != %v = actual", expectedBreakpoints, result.Breakpoints)
+		result.Logger.AdjustmentRatiosTable.Print()
+		result.Logger.LineDemeritsTable.Print()
+		result.Logger.TotalDemeritsTable.Print()
 	}
 }
 

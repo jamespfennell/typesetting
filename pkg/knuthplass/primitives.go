@@ -28,7 +28,7 @@ type Item interface {
 	BreakpointPenalty() int64
 
 	// IsFlaggedBreakpoint returns whether a breakpoint at this item is isFlagged.
-	// Two consecutive isFlagged breakpoints are assessed an additional penalty.
+	// Two consecutive isFlagged Breakpoints are assessed an additional penalty.
 	IsFlaggedBreakpoint() bool
 
 	// IsValidBreakpoint returns whether a line can break at this item.
@@ -187,6 +187,10 @@ func (penalty *penalty) IsValidBreakpoint(Item) bool {
 
 func (*penalty) IsBox() bool {
 	return false
+}
+
+func IsNullableItemFlaggedBreakpoint(item Item) bool {
+	return item != nil && item.IsFlaggedBreakpoint()
 }
 
 // ItemList is a data structure representing an ordered list of items and common operations on them.
