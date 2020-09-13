@@ -23,17 +23,17 @@ func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequen
 	return lineIndex
 }
 
-type BreakpointsResult struct {
+type CalculateBreakpointsResult struct {
 	breakpoints []int
 	Err         error
 	logger      *BreakpointLogger
 }
 
-func KnuthPlassAlgorithm(
+func CalculateBreakpoints(
 	itemList *ItemList,
 	lineLengths LineLengths,
 	criteria OptimalityCriteria,
-) BreakpointsResult {
+) CalculateBreakpointsResult {
 	// Set of nodes
 	activeNodes := make(map[node]bool)
 	newActiveNodes := make(map[node]bool)
@@ -42,7 +42,7 @@ func KnuthPlassAlgorithm(
 
 	// Data about the nodes. We don't include this data on the node object itself
 	// as that would interfere with hashing
-	nodeToPrevious := make(map[node]node)
+	nodeToPrevious := make(map[node]*node)
 	nodeToTotalDemerits := make(map[node]float64)
 
 	var loggingEnabled bool = true
@@ -60,9 +60,6 @@ func KnuthPlassAlgorithm(
 			continue
 		}
 		for activeNode := range activeNodes {
-			// fmt.Println("here!")
-			// fmt.Println("Considering break from ", activeNode.itemIndex, "to", itemIndex)
-			// fmt.Println("Line width", itemList.GetWidth(activeNode.itemIndex, itemIndex))
 			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
 			thisLineItems := itemList.Slice(activeNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
@@ -97,10 +94,14 @@ func KnuthPlassAlgorithm(
 			}
 
 			newActiveNodes[thisNode] = true
-			precedingItemIsFlaggedPenalty := false
+
+			var precedingItemIsFlaggedPenalty bool
 			if activeNode.itemIndex != -1 {
 				precedingItemIsFlaggedPenalty = itemList.Get(activeNode.itemIndex).IsFlaggedBreakpoint()
+			} else {
+				precedingItemIsFlaggedPenalty = false
 			}
+
 			totalDemerits := criteria.CalculateDemerits(
 				adjustmentRatio,
 				thisNode.fitnessClass,
@@ -113,14 +114,13 @@ func KnuthPlassAlgorithm(
 				logger.LineDemeritsTable.AddCell(activeNode, thisNode, totalDemerits-nodeToTotalDemerits[activeNode])
 				logger.TotalDemeritsTable.AddCell(activeNode, thisNode, totalDemerits)
 			}
-			smallestTotalDemeritsSoFar := true
-			if _, nodeAlreadyEncountered := nodeToPrevious[thisNode]; nodeAlreadyEncountered {
-				smallestTotalDemeritsSoFar = totalDemerits < nodeToTotalDemerits[thisNode]
-			}
-			if smallestTotalDemeritsSoFar {
-				nodeToPrevious[thisNode] = activeNode
-				nodeToTotalDemerits[thisNode] = totalDemerits
-			}
+
+			nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = betterOption(
+				nodeToPrevious[thisNode],
+				nodeToTotalDemerits[thisNode],
+				activeNode,
+				totalDemerits,
+			)
 		}
 		for newActiveNode := range newActiveNodes {
 			delete(newActiveNodes, newActiveNode)
@@ -129,7 +129,7 @@ func KnuthPlassAlgorithm(
 	}
 	if len(activeNodes) == 0 {
 		// TODO, give something back in this case
-		return BreakpointsResult{nil, &NoSolutionError{}, logger}
+		return CalculateBreakpointsResult{nil, &NoSolutionError{}, logger}
 	}
 	var bestNode node
 	minDemerits := float64(-1)
@@ -140,15 +140,44 @@ func KnuthPlassAlgorithm(
 		}
 	}
 	numBreakpoints := int64(0)
-	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = nodeToPrevious[thisNode] {
+	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = *nodeToPrevious[thisNode] {
 		numBreakpoints++
 	}
 	breakpointIndices := make([]int, numBreakpoints)
-	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = nodeToPrevious[thisNode] {
+	for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = *nodeToPrevious[thisNode] {
 		breakpointIndices[numBreakpoints-1] = thisNode.itemIndex
 		numBreakpoints--
 	}
-	return BreakpointsResult{breakpointIndices, nil, logger}
+	return CalculateBreakpointsResult{breakpointIndices, nil, logger}
+}
+
+func betterOption(node1 *node, demerits1 float64, node2 node, demerits2 float64) (*node, float64) {
+	switch true {
+	case node1 == nil:
+		return &node2, demerits2
+	case demerits1 > demerits2:
+		return &node2, demerits2
+	case demerits1 < demerits2:
+		return node1, demerits1
+	}
+	// This is the case when the demerits are the same
+	return smallerNode(node1, &node2), demerits1
+}
+
+func smallerNode(node1 *node, node2 *node) *node {
+	switch true {
+	case (*node1).itemIndex < (*node2).itemIndex:
+		return node1
+	case (*node1).itemIndex > (*node2).itemIndex:
+		return node2
+	case (*node1).fitnessClass < (*node2).fitnessClass:
+		return node1
+	case (*node1).fitnessClass > (*node2).fitnessClass:
+		return node2
+	case (*node1).lineIndex < (*node2).lineIndex:
+		return node2
+	}
+	return node1
 }
 
 // NoSolutionError is returned if the problem has no solution satisfying the optimality constraints

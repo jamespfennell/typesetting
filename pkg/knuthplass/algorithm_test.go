@@ -5,7 +5,8 @@ import (
 )
 
 // Test forbidden breaks <- easy
-// Test flagged penalty cost <- easy
+// Test variable line lengths: 200, 200, 80,...
+// Test setting small lines with too big a box -> no infinite loop
 
 func TestForcedBreaks(t *testing.T) {
 	items := []Item{
@@ -26,7 +27,7 @@ func TestForcedBreaks(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria)
 	expectedBreakpoints := []int{3, 9, 12}
 	testResult(t, expectedBreakpoints, result)
 }
@@ -46,7 +47,7 @@ func TestBasicCase(t *testing.T) {
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(270), criteria)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria)
 	testResult(t, expectedBreakpoints, result)
 }
 
@@ -86,7 +87,8 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 				MaxAdjustmentRatio:            10,
 				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
 			}
-			result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(340), criteria)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria)
+			_ = result
 			testResult(t, params.expectedBreakpoints, result)
 		})
 	}
@@ -128,13 +130,13 @@ func TestDifferentClasses(t *testing.T) {
 				MaxAdjustmentRatio:          10,
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
-			result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(200), criteria)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria)
 			testResult(t, params.expectedBreakpoints, result)
 		})
 	}
 }
 
-func testResult(t *testing.T, expectedBreakpoints []int, result BreakpointsResult) {
+func testResult(t *testing.T, expectedBreakpoints []int, result CalculateBreakpointsResult) {
 	if result.Err != nil {
 		t.Errorf("Solvable case marked as unsolved!")
 	}
