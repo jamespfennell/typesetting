@@ -63,9 +63,11 @@ func CalculateBreakpoints(
 	enableLogging bool,
 ) CalculateBreakpointsResult {
 	// Active nodes is used as a set of nodes; the value is ignored.
-	activeNodes := make(map[node]bool)
-	firstNode := node{itemIndex: -1, lineIndex: -1, fitnessClass: 1}
-	activeNodes[firstNode] = true
+	// activeNodes := make(map[node]bool)
+	activeNodes := &activeNodeSet{}
+	firstNode := node{itemIndex: -1, lineIndex: -1, fitnessClass: 0}
+	activeNodes.initialize(firstNode)
+	// activeNodes[firstNode] = true
 
 	// Data about the nodes. We don't include this data on the node object itself as that would interfere with hashing.
 	nodeToPrevious := make(map[node]*node)
@@ -83,8 +85,7 @@ func CalculateBreakpoints(
 		if !item.IsValidBreakpoint(itemList.Get(itemIndex - 1)) {
 			continue
 		}
-		newActiveNodes := make(map[node]bool)
-		for activeNode := range activeNodes {
+		for activeNode := range activeNodes.nodesInSet {
 			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
 			thisLineItems := itemList.Slice(activeNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
@@ -105,16 +106,20 @@ func CalculateBreakpoints(
 			// We can't break here, and we can't break in any future positions using this
 			// node because the adjustmentRatio is only going to get worse
 			if adjustmentRatio < -1 {
-				delete(activeNodes, activeNode)
+				// TODO: set the adjustmentRatio to -1 and continue with this overfull box
+				// We set it to -1 as that will the way it is set
+
+				activeNodes.markForDeletion(activeNode)
 				continue
 			}
 			// We must add a break here, in which case previous active nodes are deleted
 			if item.BreakpointPenalty() <= NegInfBreakpointPenalty {
-				delete(activeNodes, activeNode)
+				activeNodes.markForDeletion(activeNode)
 			}
 			// This is the case when there is not enough material for the line.
 			// We skip, but keep the node active because in a future breakpoint it may be used.
 			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
+				// TODO: under-full boxes?
 				continue
 			}
 
@@ -131,19 +136,30 @@ func CalculateBreakpoints(
 				logger.TotalDemeritsTable.AddCell(activeNode, thisNode, totalDemerits)
 			}
 
-			newActiveNodes[thisNode] = true
-			nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = betterOption(
+			activeNodes.markForAddition(thisNode)
+			nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = selectBestNode(
 				nodeToPrevious[thisNode],
 				nodeToTotalDemerits[thisNode],
 				activeNode,
 				totalDemerits,
 			)
 		}
-		for newActiveNode := range newActiveNodes {
-			delete(newActiveNodes, newActiveNode)
-			activeNodes[newActiveNode] = true
-		}
+		activeNodes.commitMarkedChanges()
 	}
+	return buildResult(
+		activeNodes.nodesInSet,
+		nodeToPrevious,
+		nodeToTotalDemerits,
+		logger,
+	)
+}
+
+func buildResult(
+	activeNodes map[node]bool,
+	nodeToPrevious map[node]*node,
+	nodeToTotalDemerits map[node]float64,
+	logger *BreakpointLogger,
+) CalculateBreakpointsResult {
 	if len(activeNodes) == 0 {
 		// TODO, give something back in this case
 		return CalculateBreakpointsResult{nil, &NoSolutionError{}, logger}
@@ -151,7 +167,7 @@ func CalculateBreakpoints(
 	var bestNode *node
 	var minDemerits float64
 	for activeNode := range activeNodes {
-		bestNode, minDemerits = betterOption(
+		bestNode, minDemerits = selectBestNode(
 			bestNode,
 			minDemerits,
 			activeNode,
@@ -173,7 +189,7 @@ func CalculateBreakpoints(
 	return CalculateBreakpointsResult{breakpointIndices, nil, logger}
 }
 
-func betterOption(node1 *node, demerits1 float64, node2 node, demerits2 float64) (*node, float64) {
+func selectBestNode(node1 *node, demerits1 float64, node2 node, demerits2 float64) (*node, float64) {
 	switch true {
 	case node1 == nil:
 		return &node2, demerits2
@@ -182,11 +198,14 @@ func betterOption(node1 *node, demerits1 float64, node2 node, demerits2 float64)
 	case demerits1 < demerits2:
 		return node1, demerits1
 	}
-	// This is the case when the demerits are the same
-	return smallerNode(node1, &node2), demerits1
+	// This is the case when the demerits are the same. In order to have a deterministic algorithm, we select
+	// the "smallest" node as determined by the following function.
+	return selectSmallerNode(node1, &node2), demerits1
 }
 
-func smallerNode(node1 *node, node2 *node) *node {
+// selectSmallerNode returns the "smaller" of two nodes, where the composite ordering considers the fields itemIndex,
+// fitnessClass and lineIndex in tha order.
+func selectSmallerNode(node1 *node, node2 *node) *node {
 	switch true {
 	case (*node1).itemIndex < (*node2).itemIndex:
 		return node1
@@ -236,4 +255,40 @@ type node struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass FitnessClass
+}
+
+type activeNodeSet struct {
+	nodesInSet map[node]bool
+	nodesToDelete map[node]bool
+	nodesToAdd map[node]bool
+}
+
+func (set *activeNodeSet) initialize(startingNode node) {
+	set.nodesInSet = make(map[node]bool)
+	set.nodesToDelete = make(map[node]bool)
+	set.nodesToAdd = make(map[node]bool)
+	set.nodesInSet[startingNode] = true
+}
+
+func (set *activeNodeSet) markForDeletion(node node) {
+	set.nodesToDelete[node] = true
+}
+
+func (set *activeNodeSet) markForAddition(node node) {
+	set.nodesToAdd[node] = true
+}
+
+func (set *activeNodeSet) commitMarkedChanges() {
+	for nodeToDelete := range set.nodesToDelete {
+		delete(set.nodesInSet, nodeToDelete)
+	}
+	for nodeToAdd := range set.nodesToAdd {
+		set.nodesInSet[nodeToAdd] = true
+	}
+	set.dropMarkedChanges()
+}
+
+func (set *activeNodeSet) dropMarkedChanges() {
+	set.nodesToDelete = make(map[node]bool)
+	set.nodesToAdd = make(map[node]bool)
 }

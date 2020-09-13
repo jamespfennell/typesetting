@@ -5,6 +5,8 @@ import (
 )
 
 // A large "happy case" test with many lines
+// Test extended paragraph lengths
+//
 
 func TestVariableLineLengths(t *testing.T) {
 	lineLengths := LineLengths{

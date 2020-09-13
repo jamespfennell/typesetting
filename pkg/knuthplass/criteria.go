@@ -72,13 +72,13 @@ func (TexOptimalityCriteria) CalculateFitnessClass(adjustmentRatio float64) Fitn
 	// Binary search essentially...
 	if adjustmentRatio <= 0.5 {
 		if adjustmentRatio <= -0.5 {
-			return 0
+			return -1
 		}
-		return 1
+		return 0
 	}
 	if adjustmentRatio <= 1 {
-		return 2
+		return 1
 	}
-	return 3
+	return 2
 
 }

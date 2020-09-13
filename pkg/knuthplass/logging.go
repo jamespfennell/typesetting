@@ -2,7 +2,6 @@ package knuthplass
 
 import "fmt"
 
-// TODO: use these loggers
 func NewBreakpointLogger() *BreakpointLogger {
 	tracker := &nodeTracker{
 		nodesInOrder: []node{},
