@@ -50,6 +50,48 @@ func TestBasicCase(t *testing.T) {
 	testResult(t, expectedBreakpoints, result)
 }
 
+func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
+	// Each block has width 120, or 100 if it comes at the end of a line. It can break in the middle for free, or
+	// at the end for free, but the end break will be a flagged penalty. In this test we have a line length of 340,
+	// leading to an optimal line-setting of 3 lines: (3 blocks, 3 blocks, 1 block). However the two breakpoints here
+	// are flagged. By assessing a large cost for the flagged penalty, we test that the algorithm will not choose this
+	// no-longer-optimal list of breakpoints.
+	block := []Item{
+		NewBox(40),
+		NewGlue(20, 12, 20),
+		NewBox(40),
+		NewPenalty(0, 0, true),
+		NewGlue(20, 12, 20),
+	}
+	var items []Item
+	for i := 0; i < 7; i++ {
+		items = append(items, block...)
+	}
+	items = append(
+		items,
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
+	)
+	paramsList := []struct {
+		name                          string
+		expectedBreakpoints           []int
+		consecutiveFlaggedPenaltyCost float64
+	}{
+		{"No consecutive flagged penalty cost", []int{13, 28, 36}, 0},
+		{"Large consecutive flagged penalty cost", []int{11, 26, 36}, 20000},
+	}
+	for _, params := range paramsList {
+		t.Run(params.name, func(t *testing.T) {
+			criteria := TexOptimalityCriteria{
+				MaxAdjustmentRatio:            10,
+				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
+			}
+			result := KnuthPlassAlgorithm(NewItemList(items), NewConstantLineLengths(340), criteria)
+			testResult(t, params.expectedBreakpoints, result)
+		})
+	}
+}
+
 func TestDifferentClasses(t *testing.T) {
 	items := []Item{
 		NewBox(80),

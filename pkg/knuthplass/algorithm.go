@@ -97,11 +97,9 @@ func KnuthPlassAlgorithm(
 			}
 
 			newActiveNodes[thisNode] = true
-			// NOTE: this is wrong! The item of interest if the one pointed to be active node
-			// TODO: fix this with a test
 			precedingItemIsFlaggedPenalty := false
-			if precedingItem != nil {
-				precedingItemIsFlaggedPenalty = false // precedingItem.IsFlaggedBreakpoint()
+			if activeNode.itemIndex != -1 {
+				precedingItemIsFlaggedPenalty = itemList.Get(activeNode.itemIndex).IsFlaggedBreakpoint()
 			}
 			totalDemerits := criteria.CalculateDemerits(
 				adjustmentRatio,
