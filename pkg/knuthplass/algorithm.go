@@ -85,6 +85,15 @@ func CalculateBreakpoints(
 		if !item.IsValidBreakpoint(itemList.Get(itemIndex - 1)) {
 			continue
 		}
+		type edge struct {
+			sourceNode node
+			targetNode node
+			adjustmentRatio float64
+		}
+		var legalEdges []edge
+		var illegalEdges []node
+		var sourceNodesToDeactivate []node
+
 		for activeNode := range activeNodes.nodesInSet {
 			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
 			thisLineItems := itemList.Slice(activeNode.itemIndex+1, itemIndex+1)
@@ -102,29 +111,22 @@ func CalculateBreakpoints(
 			if logger != nil {
 				logger.AdjustmentRatiosTable.AddCell(activeNode, thisNode, adjustmentRatio)
 			}
-
-			// We can't break here, and we can't break in any future positions using this
-			// node because the adjustmentRatio is only going to get worse
-			if adjustmentRatio < -1 {
-				// TODO: set the adjustmentRatio to -1 and continue with this overfull box
-				// We set it to -1 as that will the way it is set
-
-				activeNodes.markForDeletion(activeNode)
-				continue
+			if adjustmentRatio < -1 || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
+				sourceNodesToDeactivate = append(sourceNodesToDeactivate, activeNode)
 			}
-			// We must add a break here, in which case previous active nodes are deleted
-			if item.BreakpointPenalty() <= NegInfBreakpointPenalty {
-				activeNodes.markForDeletion(activeNode)
+			if adjustmentRatio < -1 || adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
+				illegalEdges = append(illegalEdges, activeNode)
+			} else {
+				legalEdges = append(legalEdges, edge{sourceNode: activeNode, targetNode: thisNode, adjustmentRatio: adjustmentRatio})
 			}
-			// This is the case when there is not enough material for the line.
-			// We skip, but keep the node active because in a future breakpoint it may be used.
-			if adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
-				// TODO: under-full boxes?
-				continue
-			}
+		}
+		// If legalEdges is len 0 and try illegalEdges, then move them
+		for _, edge := range legalEdges {
+			activeNode := edge.sourceNode
+			thisNode := edge.targetNode
 
 			totalDemerits := criteria.CalculateDemerits(
-				adjustmentRatio,
+				edge.adjustmentRatio,
 				thisNode.fitnessClass,
 				activeNode.fitnessClass,
 				item.BreakpointPenalty(),
@@ -136,13 +138,17 @@ func CalculateBreakpoints(
 				logger.TotalDemeritsTable.AddCell(activeNode, thisNode, totalDemerits)
 			}
 
-			activeNodes.markForAddition(thisNode)
+			activeNodes.nodesInSet[thisNode] = true
 			nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = selectBestNode(
 				nodeToPrevious[thisNode],
 				nodeToTotalDemerits[thisNode],
 				activeNode,
 				totalDemerits,
 			)
+		}
+		for _, activeNode := range sourceNodesToDeactivate {
+			delete(activeNodes.nodesInSet, activeNode)
+			// activeNodes.markForDeletion(activeNode)
 		}
 		activeNodes.commitMarkedChanges()
 	}
@@ -255,6 +261,12 @@ type node struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass FitnessClass
+}
+// TODO: use this
+type nodeData struct {
+	node *node
+	prevNode *node
+	totalDemerits float64
 }
 
 type activeNodeSet struct {
