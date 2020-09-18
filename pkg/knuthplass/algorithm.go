@@ -64,12 +64,12 @@ func CalculateBreakpoints(
 ) CalculateBreakpointsResult {
 	// Active nodes is used as a set of nodes; the value is ignored.
 	// activeNodes := make(map[node]bool)
-	activeNodes := &activeNodeSet{}
+	activeNodes := make(map[node]bool)
 	firstNode := node{itemIndex: -1, lineIndex: -1, fitnessClass: 0}
-	activeNodes.initialize(firstNode)
-	// activeNodes[firstNode] = true
+	activeNodes[firstNode] = true
 
 	// Data about the nodes. We don't include this data on the node object itself as that would interfere with hashing.
+	// nodeToData := make(map[node]nodeWithData)
 	nodeToPrevious := make(map[node]*node)
 	nodeToTotalDemerits := make(map[node]float64)
 
@@ -91,12 +91,12 @@ func CalculateBreakpoints(
 			adjustmentRatio float64
 		}
 		var legalEdges []edge
-		var illegalEdges []node
+		var illegalEdges []edge
 		var sourceNodesToDeactivate []node
 
-		for activeNode := range activeNodes.nodesInSet {
-			thisLineIndex := lineLengths.GetNextIndex(activeNode.lineIndex, criteria.GetLooseness() != 0)
-			thisLineItems := itemList.Slice(activeNode.itemIndex+1, itemIndex+1)
+		for sourceNode := range activeNodes {
+			thisLineIndex := lineLengths.GetNextIndex(sourceNode.lineIndex, criteria.GetLooseness() != 0)
+			thisLineItems := itemList.Slice(sourceNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
 				thisLineItems.Width(),
 				thisLineItems.Shrinkability(),
@@ -109,51 +109,51 @@ func CalculateBreakpoints(
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			if logger != nil {
-				logger.AdjustmentRatiosTable.AddCell(activeNode, thisNode, adjustmentRatio)
+				logger.AdjustmentRatiosTable.AddCell(sourceNode, thisNode, adjustmentRatio)
 			}
 			if adjustmentRatio < -1 || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
-				sourceNodesToDeactivate = append(sourceNodesToDeactivate, activeNode)
+				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
 			}
+			thisEdge :=  edge{sourceNode: sourceNode, targetNode: thisNode, adjustmentRatio: adjustmentRatio}
 			if adjustmentRatio < -1 || adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
-				illegalEdges = append(illegalEdges, activeNode)
+				illegalEdges = append(illegalEdges, thisEdge)
 			} else {
-				legalEdges = append(legalEdges, edge{sourceNode: activeNode, targetNode: thisNode, adjustmentRatio: adjustmentRatio})
+				legalEdges = append(legalEdges, thisEdge)
 			}
 		}
 		// If legalEdges is len 0 and try illegalEdges, then move them
 		for _, edge := range legalEdges {
-			activeNode := edge.sourceNode
 			thisNode := edge.targetNode
 
-			totalDemerits := criteria.CalculateDemerits(
+			lineDemerits := criteria.CalculateDemerits(
 				edge.adjustmentRatio,
-				thisNode.fitnessClass,
-				activeNode.fitnessClass,
+				edge.targetNode.fitnessClass,
+				edge.sourceNode.fitnessClass,
 				item.BreakpointPenalty(),
 				item.IsFlaggedBreakpoint(),
-				IsNullableItemFlaggedBreakpoint(itemList.Get(activeNode.itemIndex)),
-			) + nodeToTotalDemerits[activeNode]
+				IsNullableItemFlaggedBreakpoint(itemList.Get(edge.sourceNode.itemIndex)),
+			)
+			totalDemerits := lineDemerits + nodeToTotalDemerits[edge.sourceNode]
+			// totalDemerits := lineDemerits + nodeToData[edge.sourceNode].totalDemerits
 			if logger != nil {
-				logger.LineDemeritsTable.AddCell(activeNode, thisNode, totalDemerits-nodeToTotalDemerits[activeNode])
-				logger.TotalDemeritsTable.AddCell(activeNode, thisNode, totalDemerits)
+				logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
+				logger.TotalDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, totalDemerits)
 			}
 
-			activeNodes.nodesInSet[thisNode] = true
+			activeNodes[edge.targetNode] = true
 			nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = selectBestNode(
 				nodeToPrevious[thisNode],
 				nodeToTotalDemerits[thisNode],
-				activeNode,
+				edge.sourceNode,
 				totalDemerits,
 			)
 		}
 		for _, activeNode := range sourceNodesToDeactivate {
-			delete(activeNodes.nodesInSet, activeNode)
-			// activeNodes.markForDeletion(activeNode)
+			delete(activeNodes, activeNode)
 		}
-		activeNodes.commitMarkedChanges()
 	}
 	return buildResult(
-		activeNodes.nodesInSet,
+		activeNodes,
 		nodeToPrevious,
 		nodeToTotalDemerits,
 		logger,
@@ -193,6 +193,9 @@ func buildResult(
 		numBreakpoints--
 	}
 	return CalculateBreakpointsResult{breakpointIndices, nil, logger}
+}
+
+func updateNodeData(data *nodeWithData, sourceNode *nodeWithData, demerits float64) {
 }
 
 func selectBestNode(node1 *node, demerits1 float64, node2 node, demerits2 float64) (*node, float64) {
@@ -263,44 +266,42 @@ type node struct {
 	fitnessClass FitnessClass
 }
 // TODO: use this
-type nodeData struct {
+type nodeWithData struct {
 	node *node
-	prevNode *node
+	prevNode *nodeWithData
 	totalDemerits float64
 }
 
-type activeNodeSet struct {
-	nodesInSet map[node]bool
-	nodesToDelete map[node]bool
-	nodesToAdd map[node]bool
+type nodeId struct {
+	itemIndex    int
+	lineIndex    int
+	fitnessClass FitnessClass
 }
 
-func (set *activeNodeSet) initialize(startingNode node) {
-	set.nodesInSet = make(map[node]bool)
-	set.nodesToDelete = make(map[node]bool)
-	set.nodesToAdd = make(map[node]bool)
-	set.nodesInSet[startingNode] = true
-}
-
-func (set *activeNodeSet) markForDeletion(node node) {
-	set.nodesToDelete[node] = true
-}
-
-func (set *activeNodeSet) markForAddition(node node) {
-	set.nodesToAdd[node] = true
-}
-
-func (set *activeNodeSet) commitMarkedChanges() {
-	for nodeToDelete := range set.nodesToDelete {
-		delete(set.nodesInSet, nodeToDelete)
+func (node *node) key() nodeId {
+	return nodeId{
+		itemIndex:    node.itemIndex,
+		lineIndex:    node.lineIndex,
+		fitnessClass: node.fitnessClass,
 	}
-	for nodeToAdd := range set.nodesToAdd {
-		set.nodesInSet[nodeToAdd] = true
-	}
-	set.dropMarkedChanges()
 }
 
-func (set *activeNodeSet) dropMarkedChanges() {
-	set.nodesToDelete = make(map[node]bool)
-	set.nodesToAdd = make(map[node]bool)
+type nodeSet struct {
+	keyToNode map[nodeId]*node
+}
+
+func (set *nodeSet) add(nodeId nodeId) *node {
+	_, exists := set.keyToNode[nodeId]
+	if !exists {
+		set.keyToNode[nodeId] = &node{
+			itemIndex:    nodeId.itemIndex,
+			lineIndex:    nodeId.lineIndex,
+			fitnessClass: nodeId.fitnessClass,
+		}
+	}
+	return set.keyToNode[nodeId]
+}
+
+func (set *nodeSet) delete(node *node) {
+	delete(set.keyToNode, node.key())
 }
