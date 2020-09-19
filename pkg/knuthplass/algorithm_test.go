@@ -39,7 +39,7 @@ func TestVariableLineLengths(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
-	result := CalculateBreakpoints(NewItemList(items), lineLengths, criteria, true)
+	result := CalculateBreakpoints(NewItemList(items), lineLengths, criteria, false, true)
 	verifyResult(t, []int{3, 7, 11, 15, 18}, result)
 }
 
@@ -54,10 +54,25 @@ func TestBoxTooBig(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, true)
-	if result.Err == nil {
-		t.Error("Expected error, received none")
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, false, true)
+	verifyErrorResult(t, []int{3}, result)
+}
+func TestDeterministicFinalNodeSelection(t *testing.T) {
+	// This is a highly contrived test case. It is designed to that there are two optimal ways, on different lines
+	// to set the paragraph. The test is to ensure that the algorithm deterministically chooses []int{3, 6} instead
+	// of []int{6}.
+	items := []Item{
+		NewBox(30),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewBox(30),
+		NewPenalty(0, -1, false),
+		NewBox(30),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
+	result := CalculateBreakpoints(NewItemList(items), LineLengths{initialLengths: []int64{90, 30}}, criteria, false, true)
+	verifyResult(t, []int{3, 6}, result)
 }
 
 func TestAdjustmentRatioTooBig(t *testing.T) {
@@ -71,7 +86,7 @@ func TestAdjustmentRatioTooBig(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 1}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(230), criteria, true)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(230), criteria, false, true)
 	if result.Err == nil {
 		t.Error("Expected error, received none")
 	}
@@ -103,7 +118,7 @@ func TestForbiddenBreaks(t *testing.T) {
 				NewPenalty(0, NegInfBreakpointPenalty, false),
 			}
 			criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
-			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(140), criteria, true)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(140), criteria, false, true)
 			verifyResult(t, params.expectedBreakpoints, result)
 		})
 	}
@@ -128,7 +143,7 @@ func TestForcedBreaks(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, false, true)
 	expectedBreakpoints := []int{3, 9, 12}
 	verifyResult(t, expectedBreakpoints, result)
 }
@@ -148,7 +163,7 @@ func TestBasicCase(t *testing.T) {
 	}
 	expectedBreakpoints := []int{5, 8}
 	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
-	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, true)
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, false, true)
 	verifyResult(t, expectedBreakpoints, result)
 }
 
@@ -188,7 +203,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 				MaxAdjustmentRatio:            10,
 				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
 			}
-			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria, true)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria, false, true)
 			_ = result
 			verifyResult(t, params.expectedBreakpoints, result)
 		})
@@ -231,7 +246,7 @@ func TestDifferentClasses(t *testing.T) {
 				MaxAdjustmentRatio:          10,
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
-			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, true)
+			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, false, true)
 			verifyResult(t, params.expectedBreakpoints, result)
 		})
 	}
@@ -247,6 +262,16 @@ func verifyResult(t *testing.T, expectedBreakpoints []int, result CalculateBreak
 		result.Logger.AdjustmentRatiosTable.Print()
 		result.Logger.LineDemeritsTable.Print()
 		result.Logger.TotalDemeritsTable.Print()
+	}
+}
+
+func verifyErrorResult(t *testing.T, expectedProblematicIndices []int, result CalculateBreakpointsResult) {
+	if result.Err == nil {
+		t.Fatal("Expected error, received none")
+	}
+	if !listEqual(result.Err.ProblematicItemIndices, expectedProblematicIndices) {
+		t.Errorf("Probelematic item indices not equal!")
+		t.Errorf("Expected = %v != %v = actual", expectedProblematicIndices, result.Err.ProblematicItemIndices)
 	}
 }
 

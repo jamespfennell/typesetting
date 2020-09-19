@@ -2,6 +2,8 @@
 // for the data structures needed to use it.
 package knuthplass
 
+import "fmt"
+
 type LineLengths struct {
 	initialLengths    []int64
 	subsequentLengths int64
@@ -34,7 +36,7 @@ type CalculateBreakpointsResult struct {
 	Breakpoints []int
 
 	// Err contains an error if the Knuth-Plass problem could not be solved subject to the provided constraints.
-	Err error
+	Err *NoSolutionError
 
 	// Logger contains a BreakpointLogger with results of the internal calculations performed during the function.
 	// If the enableLogging parameter to CalculateBreakpoints was false, the logger will be nil.
@@ -49,8 +51,8 @@ type CalculateBreakpointsResult struct {
 // The Knuth-Plass problem may not have a solution. This occurs when there is no way to set the paragraph such
 // that each line's adjustment ratio is in the range (-1, OptimalityCriteria.GetMaxAdjustmentRatio()). In this
 // case CalculateBreakpoints can do two things. If the parameter returnBestEffort is false, the function terminates with
-// an error as soon as the non-existence of a solution is discovered. If returnBestEffort is true, the function will
-// continue and return a full set of breakpoints; however, one or more of the lines will necessarily be under-full
+// an error as soon as the non-existence of a solution is discovered. If fallbackToIllegalSolution is true, the function
+// will continue and return a full set of breakpoints; however, one or more of the lines will necessarily be under-full
 // (adjustment ratio less than -1) or over-full (adjustment ratio bigger than the max). An error in this case will be
 // returned, and will describe which lines are affected and whether they're under- or over-full.
 //
@@ -60,19 +62,13 @@ func CalculateBreakpoints(
 	itemList *ItemList,
 	lineLengths LineLengths,
 	criteria OptimalityCriteria,
+	fallbackToIllegalSolution bool,
 	enableLogging bool,
 ) CalculateBreakpointsResult {
-	// Active nodes is used as a set of nodes; the value is ignored.
-	//	activeNodes := make(map[node]bool)
-	activeNodes := nodeSet{keyToNode: map[nodeId]*node{}}
+	activeNodes := newNodeSet()
 	firstNode := activeNodes.add(nodeId{itemIndex: -1, lineIndex: -1, fitnessClass: 0})
 	firstNode.demerits = 0
-	// activeNodes[firstNode] = true
-
-	// Data about the nodes. We don't include this data on the node object itself as that would interfere with hashing.
-	// nodeToData := make(map[node]nodeWithData)
-	nodeToPrevious := make(map[node]*node)
-	nodeToTotalDemerits := make(map[node]float64)
+	var problematicItemIndices []int
 
 	var logger *BreakpointLogger
 	if enableLogging {
@@ -87,15 +83,18 @@ func CalculateBreakpoints(
 			continue
 		}
 		type edge struct {
-			sourceNode      *node
+			sourceNode *node
+			// We refer to the target node using a nodeId object. This is because the target node is not in the
+			// active set, and hence there is no node object corresponding it.
 			targetNode      nodeId
 			adjustmentRatio float64
 		}
-		var legalEdges []edge
-		var illegalEdges []edge
+		var edges []edge
+		var fallbackEdges []edge
 		var sourceNodesToDeactivate []*node
 
-		for _, sourceNode := range activeNodes.keyToNode {
+		allActiveNodesToBeDeactivated := true
+		for _, sourceNode := range activeNodes.idToNode {
 			thisLineIndex := lineLengths.GetNextIndex(sourceNode.lineIndex, criteria.GetLooseness() != 0)
 			thisLineItems := itemList.Slice(sourceNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
@@ -104,28 +103,36 @@ func CalculateBreakpoints(
 				thisLineItems.Stretchability(),
 				lineLengths.GetLength(thisLineIndex),
 			)
-			thisNode := nodeId{
+			targetNode := nodeId{
 				itemIndex:    itemIndex,
 				lineIndex:    thisLineIndex,
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
-			//if logger != nil {
-			//	logger.AdjustmentRatiosTable.AddCell(sourceNode, thisNode, adjustmentRatio)
-			//}
+			if logger != nil {
+				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio)
+			}
 			if adjustmentRatio < -1 || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
-			}
-			thisEdge := edge{sourceNode: sourceNode, targetNode: thisNode, adjustmentRatio: adjustmentRatio}
-			if adjustmentRatio < -1 || adjustmentRatio > criteria.GetMaxAdjustmentRatio() {
-				illegalEdges = append(illegalEdges, thisEdge)
 			} else {
-				legalEdges = append(legalEdges, thisEdge)
+				allActiveNodesToBeDeactivated = false
+			}
+			thisEdge := edge{sourceNode: sourceNode, targetNode: targetNode, adjustmentRatio: adjustmentRatio}
+			switch true {
+			case adjustmentRatio >= -1 && adjustmentRatio <= criteria.GetMaxAdjustmentRatio():
+				edges = append(edges, thisEdge)
+			case len(edges) == 0 && allActiveNodesToBeDeactivated:
+				fallbackEdges = append(fallbackEdges, thisEdge)
 			}
 		}
-		// If legalEdges is len 0 and try illegalEdges, then move them
-		for _, edge := range legalEdges {
-			// thisNode := edge.targetNode
-
+		// If there are no legal edges and after this iteration there will be no active nodes, there is no legal
+		// solution to this Knuth-Plass problem.
+		if len(edges) == 0 && allActiveNodesToBeDeactivated {
+			problematicItemIndices = append(problematicItemIndices, itemIndex)
+			if fallbackToIllegalSolution {
+				edges = fallbackEdges
+			}
+		}
+		for _, edge := range edges {
 			lineDemerits := criteria.CalculateDemerits(
 				edge.adjustmentRatio,
 				edge.targetNode.fitnessClass,
@@ -134,98 +141,60 @@ func CalculateBreakpoints(
 				item.IsFlaggedBreakpoint(),
 				IsNullableItemFlaggedBreakpoint(itemList.Get(edge.sourceNode.itemIndex)),
 			)
-			totalDemerits := lineDemerits + edge.sourceNode.demerits // nodeToTotalDemerits[edge.sourceNode]
-			// totalDemerits := lineDemerits + nodeToData[edge.sourceNode].totalDemerits
-			//if logger != nil {
-			//	logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
-			//	logger.TotalDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, totalDemerits)
-			//}
-
+			totalDemerits := lineDemerits + edge.sourceNode.demerits
+			if logger != nil {
+				logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
+				logger.TotalDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, totalDemerits)
+			}
 			targetNode := activeNodes.add(edge.targetNode)
-			updateNode(targetNode, edge.sourceNode, totalDemerits)
-			/*
-				// activeNodes[edge.targetNode] = true
-				nodeToPrevious[thisNode], nodeToTotalDemerits[thisNode] = selectBestNode(
-					nodeToPrevious[thisNode],
-					nodeToTotalDemerits[thisNode],
-					edge.sourceNode,
-					totalDemerits,
-				)*/
+			updateTargetNodeIfNewSourceNodeIsBetter(targetNode, edge.sourceNode, totalDemerits)
 		}
 		for _, activeNode := range sourceNodesToDeactivate {
 			activeNodes.delete(activeNode)
-			// delete(activeNodes, activeNode)
+		}
+		if activeNodes.len() == 0 {
+			break
 		}
 	}
-	return buildResult(
-		activeNodes,
-		nodeToPrevious,
-		nodeToTotalDemerits,
-		logger,
-	)
-}
-
-func buildResult(
-	activeNodes nodeSet, // map[node]bool,
-	nodeToPrevious map[node]*node,
-	nodeToTotalDemerits map[node]float64,
-	logger *BreakpointLogger,
-) CalculateBreakpointsResult {
-	if len(activeNodes.keyToNode) == 0 {
-		// TODO, give something back in this case
-		return CalculateBreakpointsResult{nil, &NoSolutionError{}, logger}
-	}
-	var bestNode *node
-	for _, activeNode := range activeNodes.keyToNode {
-		if bestNode == nil || bestNode.demerits > activeNode.demerits {
-			bestNode = activeNode
-		}
-	}
-	if bestNode == nil {
-		panic(0)
+	finalPseudoNode := &node{}
+	for _, activeNode := range activeNodes.idToNode {
+		updateTargetNodeIfNewSourceNodeIsBetter(finalPseudoNode, activeNode, activeNode.demerits)
 	}
 	numBreakpoints := 0
-	for thisNode := bestNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
+	for thisNode := finalPseudoNode.prevNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
 		numBreakpoints++
 	}
-	breakpointIndices := make([]int, numBreakpoints)
-	for thisNode := bestNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
-		// for thisNode := bestNode; thisNode.itemIndex != -1; thisNode = nodeToPrevious[*thisNode] {
-		breakpointIndices[numBreakpoints-1] = thisNode.itemIndex
+	result := CalculateBreakpointsResult{
+		Breakpoints: make([]int, numBreakpoints),
+		Err:         nil,
+		Logger:      logger,
+	}
+	for thisNode := finalPseudoNode.prevNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
+		result.Breakpoints[numBreakpoints-1] = thisNode.itemIndex
 		numBreakpoints--
 	}
-	return CalculateBreakpointsResult{breakpointIndices, nil, logger}
-}
-
-func updateNodeData(data *nodeWithData, sourceNode *nodeWithData, demerits float64) {
-}
-
-func updateNode(node *node, candidatePrevNode *node, candidateDemerits float64) {
-	switch true {
-	case node.prevNode == nil || candidateDemerits < node.demerits:
-		node.prevNode = candidatePrevNode
-		node.demerits = candidateDemerits
-	case candidateDemerits == node.demerits:
-		node.prevNode = selectSmallerNode(node.prevNode, candidatePrevNode)
+	// TODO: test this case
+	if len(problematicItemIndices) != 0 {
+		result.Err = &NoSolutionError{ProblematicItemIndices: problematicItemIndices}
 	}
+	return result
 }
 
-func selectBestNode(node1 *node, demerits1 float64, node2 node, demerits2 float64) (*node, float64) {
+// updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided
+// candidatePrevNode if that node results in the targetNode having fewer demerits.
+func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, candidateDemerits float64) {
 	switch true {
-	case node1 == nil:
-		return &node2, demerits2
-	case demerits1 > demerits2:
-		return &node2, demerits2
-	case demerits1 < demerits2:
-		return node1, demerits1
+	case targetNode.prevNode == nil || candidateDemerits < targetNode.demerits:
+		targetNode.prevNode = candidatePrevNode
+		targetNode.demerits = candidateDemerits
+	case candidateDemerits == targetNode.demerits:
+		targetNode.prevNode = selectSmallerNode(targetNode.prevNode, candidatePrevNode)
 	}
-	// This is the case when the demerits are the same. In order to have a deterministic algorithm, we select
-	// the "smallest" node as determined by the following function.
-	return selectSmallerNode(node1, &node2), demerits1
 }
 
 // selectSmallerNode returns the "smaller" of two nodes, where the composite ordering considers the fields itemIndex,
-// fitnessClass and lineIndex in tha order.
+// fitnessClass and lineIndex in that order. This ordering is used to make the algorithm deterministic; otherwise,
+// the result may depend on the non-deterministic iteration order of active nodes.
 func selectSmallerNode(node1 *node, node2 *node) *node {
 	switch true {
 	case (*node1).itemIndex < (*node2).itemIndex:
@@ -244,12 +213,16 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 
 // NoSolutionError is returned if the problem has no solution satisfying the optimality constraints
 type NoSolutionError struct {
-	// TODO: add data on which lines failed
-	// Which breakpoint and whether underfful or overfull
+	ProblematicItemIndices []int
 }
 
 func (err *NoSolutionError) Error() string {
-	return "There is no admissible solution given the provided optimiality criteria!"
+	return fmt.Sprintf(
+		"There is no admissible solution given the provided optimality criteria. "+
+			"Non-legal breakpoints occur at the following item indices: %v",
+		err.ProblematicItemIndices,
+	)
+
 }
 
 func calculateAdjustmentRatio(
@@ -260,10 +233,9 @@ func calculateAdjustmentRatio(
 ) float64 {
 	switch {
 	case lineWidth > targetLineWidth:
-		// Division by 0, inf is allowed
 		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
 	case lineWidth < targetLineWidth:
-		if lineStretchability == InfiniteStretchability {
+		if lineStretchability >= InfiniteStretchability {
 			return 0
 		}
 		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
@@ -280,20 +252,13 @@ type node struct {
 	prevNode     *node
 }
 
-// TODO: use this
-type nodeWithData struct {
-	node          *node
-	prevNode      *nodeWithData
-	totalDemerits float64
-}
-
 type nodeId struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass FitnessClass
 }
 
-func (node *node) key() nodeId {
+func (node *node) id() nodeId {
 	return nodeId{
 		itemIndex:    node.itemIndex,
 		lineIndex:    node.lineIndex,
@@ -302,21 +267,29 @@ func (node *node) key() nodeId {
 }
 
 type nodeSet struct {
-	keyToNode map[nodeId]*node
+	idToNode map[nodeId]*node
+}
+
+func newNodeSet() nodeSet {
+	return nodeSet{idToNode: map[nodeId]*node{}}
 }
 
 func (set *nodeSet) add(nodeId nodeId) *node {
-	_, exists := set.keyToNode[nodeId]
+	_, exists := set.idToNode[nodeId]
 	if !exists {
-		set.keyToNode[nodeId] = &node{
+		set.idToNode[nodeId] = &node{
 			itemIndex:    nodeId.itemIndex,
 			lineIndex:    nodeId.lineIndex,
 			fitnessClass: nodeId.fitnessClass,
 		}
 	}
-	return set.keyToNode[nodeId]
+	return set.idToNode[nodeId]
 }
 
 func (set *nodeSet) delete(node *node) {
-	delete(set.keyToNode, node.key())
+	delete(set.idToNode, node.id())
+}
+
+func (set *nodeSet) len() int {
+	return len(set.idToNode)
 }

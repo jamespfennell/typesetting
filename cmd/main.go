@@ -20,6 +20,6 @@ func main() {
 	// expectedBreakpoints := []int{5, 8}
 	criteria := knuthplass.TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
 	// actualBreakpoints, err :=
-	knuthplass.CalculateBreakpoints(knuthplass.NewItemList(items), knuthplass.NewConstantLineLengths(270), criteria, true)
+	knuthplass.CalculateBreakpoints(knuthplass.NewItemList(items), knuthplass.NewConstantLineLengths(270), criteria, false, true)
 
 }

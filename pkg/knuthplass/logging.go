@@ -4,8 +4,8 @@ import "fmt"
 
 func NewBreakpointLogger() *BreakpointLogger {
 	tracker := &nodeTracker{
-		nodesInOrder: []node{},
-		nodesSeen:    make(map[node]bool),
+		nodesInOrder: []nodeId{},
+		nodesSeen:    make(map[nodeId]bool),
 	}
 	return &BreakpointLogger{
 		AdjustmentRatiosTable: NewNodeNodeTable("Adjustment ratios", tracker),
@@ -21,11 +21,11 @@ type BreakpointLogger struct {
 }
 
 type nodeTracker struct {
-	nodesInOrder []node
-	nodesSeen    map[node]bool
+	nodesInOrder []nodeId
+	nodesSeen    map[nodeId]bool
 }
 
-func (tracker *nodeTracker) initNode(thisNode node) {
+func (tracker *nodeTracker) initNode(thisNode nodeId) {
 	if _, nodeSeen := tracker.nodesSeen[thisNode]; nodeSeen {
 		return
 	}
@@ -37,31 +37,31 @@ func NewNodeNodeTable(name string, tracker *nodeTracker) *NodeNodeTable {
 	return &NodeNodeTable{
 		name:        name,
 		nodeTracker: tracker,
-		data:        make(map[node]map[node]float64),
+		data:        make(map[nodeId]map[nodeId]float64),
 	}
 }
 
 type NodeNodeTable struct {
 	name        string
 	nodeTracker *nodeTracker
-	data        map[node]map[node]float64
+	data        map[nodeId]map[nodeId]float64
 }
 
-func (table *NodeNodeTable) AddCell(rowKey node, colKey node, value float64) {
-	table.nodeTracker.initNode(rowKey)
+func (table *NodeNodeTable) AddCell(rowKey *node, colKey nodeId, value float64) {
+	table.nodeTracker.initNode(rowKey.id())
 	table.nodeTracker.initNode(colKey)
-	_, rowExists := table.data[rowKey]
+	_, rowExists := table.data[rowKey.id()]
 	if !rowExists {
-		table.data[rowKey] = make(map[node]float64)
+		table.data[rowKey.id()] = make(map[nodeId]float64)
 	}
-	table.data[rowKey][colKey] = value
+	table.data[rowKey.id()][colKey] = value
 }
 
 func (table *NodeNodeTable) Print() {
 	fmt.Println(fmt.Sprintf(" +---[ %s ]---", table.name))
 	headerLine := fmt.Sprintf(" | %10s | ", "")
 
-	colKeyToColWidth := make(map[node]int)
+	colKeyToColWidth := make(map[nodeId]int)
 	for _, colKey := range table.nodeTracker.nodesInOrder {
 		colKeyToColWidth[colKey] = -1.0
 		for _, rowKey := range table.nodeTracker.nodesInOrder {
@@ -106,10 +106,10 @@ func (table *NodeNodeTable) Print() {
 		fmt.Println(line)
 	}
 	fmt.Println(" +----")
-	fmt.Println(" Node key: [item index]/[line index]/[fitness class]. Line index may...")
+	fmt.Println(" Node id: [item index]/[line index]/[fitness class]. Line index may...")
 	fmt.Println()
 }
 
-func buildNodeLabel(node node) string {
+func buildNodeLabel(node nodeId) string {
 	return fmt.Sprintf("%d/%d/%d", node.itemIndex, node.lineIndex, node.fitnessClass)
 }
