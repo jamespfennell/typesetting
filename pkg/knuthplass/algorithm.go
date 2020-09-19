@@ -160,24 +160,32 @@ func CalculateBreakpoints(
 	for _, activeNode := range activeNodes.idToNode {
 		updateTargetNodeIfNewSourceNodeIsBetter(finalPseudoNode, activeNode, activeNode.demerits)
 	}
-	numBreakpoints := 0
-	for thisNode := finalPseudoNode.prevNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
-		numBreakpoints++
+	var err *NoSolutionError
+	if len(problematicItemIndices) != 0 {
+		err = &NoSolutionError{ProblematicItemIndices: problematicItemIndices}
 	}
-	result := CalculateBreakpointsResult{
-		Breakpoints: make([]int, numBreakpoints),
-		Err:         nil,
+	return CalculateBreakpointsResult{
+		Breakpoints: buildBreakpoints(finalPseudoNode.prevNode),
+		Err:         err,
 		Logger:      logger,
 	}
-	for thisNode := finalPseudoNode.prevNode; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
-		result.Breakpoints[numBreakpoints-1] = thisNode.itemIndex
+}
+
+// buildBreakpoints returns a slice of breakpoint indices, where the provided node is the final breakpoint.
+func buildBreakpoints(node *node) []int {
+	if node == nil {
+		return nil
+	}
+	numBreakpoints := 0
+	for thisNode := node; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
+		numBreakpoints++
+	}
+	breakpoints := make([]int, numBreakpoints)
+	for thisNode := node; thisNode.prevNode != nil; thisNode = thisNode.prevNode {
+		breakpoints[numBreakpoints-1] = thisNode.itemIndex
 		numBreakpoints--
 	}
-	// TODO: test this case
-	if len(problematicItemIndices) != 0 {
-		result.Err = &NoSolutionError{ProblematicItemIndices: problematicItemIndices}
-	}
-	return result
+	return breakpoints
 }
 
 // updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided

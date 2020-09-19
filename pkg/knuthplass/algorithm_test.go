@@ -43,6 +43,21 @@ func TestVariableLineLengths(t *testing.T) {
 	verifyResult(t, []int{3, 7, 11, 15, 18}, result)
 }
 
+func BestIllegalCase(t *testing.T) {
+	items := []Item{
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(10, 5, 5),
+		NewBox(100),
+		NewGlue(0, 0, InfiniteStretchability),
+		NewPenalty(0, NegInfBreakpointPenalty, false),
+	}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: 10}
+	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, true, true)
+	verifyErrorResult(t, []int{}, result)
+}
+
 func TestBoxTooBig(t *testing.T) {
 	items := []Item{
 		NewBox(100),
@@ -57,6 +72,7 @@ func TestBoxTooBig(t *testing.T) {
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, false, true)
 	verifyErrorResult(t, []int{3}, result)
 }
+
 func TestDeterministicFinalNodeSelection(t *testing.T) {
 	// This is a highly contrived test case. It is designed to that there are two optimal ways, on different lines
 	// to set the paragraph. The test is to ensure that the algorithm deterministically chooses []int{3, 6} instead
