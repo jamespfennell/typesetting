@@ -1,37 +1,96 @@
 // Package knuthplass contains an implementation of the Knuth-Plass line breaking algorithm, as well as definitions
 // for the data structures needed to use it.
+//
+// Users of this package must first create:
+//
+// - a slice of Item types representing the problem at hand, and then use these to initialize an ItemList.
+//
+// - a LineLengths type that describes the line lengths in the paragraph.
+//
+// - an OptimalityCriteria type that describes the optimization criteria. The type TexOptimalityCriteria provides
+// the optimality criteria as used in the Tex typesetting system.
+//
+// With these, the Knuth-Plass algorithm can be run using the CalculateBreakpoints function.
+// After this, the lines can be set (i.e., the exact width of each input Item can be fixed) using the TBD function.
 package knuthplass
 
 import "fmt"
 
-type LineLengths struct {
+// LineLengths provides the lengths of the lines in a paragraph.
+//
+// A bad implementation of LineLengths may result in the Knuth-Plass algorithm running an order of magnitude
+// slower, as explained below. Therefore, instead of writing a new type that implements this interface, prefer to use
+// the functions NewConstantLineLengths and NewVariableLineLengths if they suit the given use case.
+//
+// Otherwise, read the following optimization discussion carefully.
+// In general, the Knuth-Plass algorithm runs in O(L*N*M) where L is the number of lines the paragraph, N is the number
+// of items in the input, and M is approximately the number of items that can fit on each line.
+// There exists a simple optimization in the original paper of Knuth and Plass such that if the line lengths
+// are all constant, the running time is O(M*N); i.e., effectively L=1.
+// In this package's implementation of Knuth-Plass, this optimization is achieved by using a smart LineLengths
+// implementation.
+//
+// The following observation leads to the optimization.
+// Let A be the index of a line in the paragraph, and let B be the index of the following line.
+// In general this means B=A+1.
+// However, the Knuth-Plass algorithm doesn't require this.
+// The only constraint the algorithm imposes is that the list of line lengths starting after index A
+// is equal to the list of line lengths starting at index B.
+// If B=A+1 this is trivially true.
+// But consider the case when all the line lengths are the same.
+// In this case, regardless of the starting point, the list of line lengths is just the same
+// constant list.
+// We can thus set index B to be *equal* to index A, because the the two lists in the constraint will be the
+// same constant list and in particular the same.
+// In fact, for a paragraph of constant lengths all lines have the same "index".
+//
+// The LineLengths interface refers to the "index" as the pseudo index to indicate that it is not, in general,
+// the actual index of a line in a paragraph but rather the number satisfying the constraint above.
+// Using the LineLengths interface, the running time of the algorithm is O(U*N*M) where U is the number of
+// unique line pseudo indexes in the paragraph.
+type LineLengths interface {
+	// GetLength returns the length of the line at the provided pseudo index.
+	GetLength(pseudoIndex int) int64
+
+	// GetNextPseudoIndex returns the pseudo index of the line after the line specified by the given pseudo index.
+	GetNextPseudoIndex(pseudoIndex int) int
+}
+
+// NewConstantLineLengths constructs a new LineLengths data structure where each line has the same length.
+func NewConstantLineLengths(constantLength int64) LineLengths {
+	return &basicLineLengthsImpl{initialLengths: []int64{}, subsequentLengths: constantLength}
+}
+
+// NewVariableLineLengths constructs a new LineLengths data structure where the first lines have the variable
+// lengths given in the lengths parameter, and all subsequent lines have the length given in subsequentLengths.
+func NewVariableLineLengths(lengths []int64, subsequentLengths int64) LineLengths {
+	return &basicLineLengthsImpl{initialLengths: lengths, subsequentLengths: subsequentLengths}
+}
+
+type basicLineLengthsImpl struct {
 	initialLengths    []int64
 	subsequentLengths int64
 }
 
-func NewConstantLineLengths(constantLength int64) LineLengths {
-	return LineLengths{initialLengths: []int64{}, subsequentLengths: constantLength}
-}
-
-func (lineLengths *LineLengths) GetLength(lineIndex int) int64 {
-	if lineIndex < len(lineLengths.initialLengths) {
-		return lineLengths.initialLengths[lineIndex]
+func (lineLengths *basicLineLengthsImpl) GetLength(pseudoIndex int) int64 {
+	if pseudoIndex < len(lineLengths.initialLengths) {
+		return lineLengths.initialLengths[pseudoIndex]
 	}
 	return lineLengths.subsequentLengths
 }
 
-func (lineLengths *LineLengths) GetNextIndex(lineIndex int, distinguishSubsequentLines bool) int {
-	if distinguishSubsequentLines || lineIndex < len(lineLengths.initialLengths) {
-		return lineIndex + 1
+func (lineLengths *basicLineLengthsImpl) GetNextPseudoIndex(pseudoIndex int) int {
+	if pseudoIndex < len(lineLengths.initialLengths) {
+		return pseudoIndex + 1
 	}
-	return lineIndex
+	return pseudoIndex
 }
 
 // CalculateBreakpointsResult stores the result of the CalculateBreakpoints algorithm.
 type CalculateBreakpointsResult struct {
 	// Breakpoints contains the indices of the items in the ItemList where the optimal line breaks occur.
 	//
-	// Note that in the case when Err is not nil and the returnBestEffort parameter to CalculateBreakpoints was
+	// Note that in the case when Err is not nil and the fallbackToIllegalSolution parameter to CalculateBreakpoints was
 	// false, Breakpoints will be nil.
 	Breakpoints []int
 
@@ -43,8 +102,8 @@ type CalculateBreakpointsResult struct {
 	Logger *BreakpointLogger
 }
 
-// CalculateBreakpoints is an implementation of the Knuth-Plass algorithm. It uses the algorithm to find the optimal
-// sequence of Breakpoints in an ItemList
+// CalculateBreakpoints is the package's implementation of the Knuth-Plass algorithm.
+// It finds the optimal sequence of Breakpoints in an ItemList
 // such that when the resulting lines are set using the provided LineLengths the total number of demerits as calculated
 // using the OptimalityCriteria is minimized.
 //
@@ -66,7 +125,7 @@ func CalculateBreakpoints(
 	enableLogging bool,
 ) CalculateBreakpointsResult {
 	activeNodes := newNodeSet()
-	firstNode := activeNodes.add(nodeId{itemIndex: -1, lineIndex: -1, fitnessClass: 0})
+	firstNode := activeNodes.add(nodeID{itemIndex: -1, lineIndex: -1, fitnessClass: 0})
 	firstNode.demerits = 0
 	var problematicItemIndices []int
 
@@ -84,9 +143,9 @@ func CalculateBreakpoints(
 		}
 		type edge struct {
 			sourceNode *node
-			// We refer to the target node using a nodeId object. This is because the target node is not in the
+			// We refer to the target node using a nodeID object. This is because the target node is not in the
 			// active set, and hence there is no node object corresponding it.
-			targetNode      nodeId
+			targetNode      nodeID
 			adjustmentRatio float64
 		}
 		var edges []edge
@@ -95,7 +154,12 @@ func CalculateBreakpoints(
 
 		allActiveNodesToBeDeactivated := true
 		for _, sourceNode := range activeNodes.idToNode {
-			thisLineIndex := lineLengths.GetNextIndex(sourceNode.lineIndex, criteria.GetLooseness() != 0)
+			var thisLineIndex int
+			if criteria.GetLooseness() != 0 {
+				thisLineIndex = sourceNode.lineIndex + 1
+			} else {
+				thisLineIndex = lineLengths.GetNextPseudoIndex(sourceNode.lineIndex)
+			}
 			thisLineItems := itemList.Slice(sourceNode.itemIndex+1, itemIndex+1)
 			adjustmentRatio := calculateAdjustmentRatio(
 				thisLineItems.Width(),
@@ -103,7 +167,7 @@ func CalculateBreakpoints(
 				thisLineItems.Stretchability(),
 				lineLengths.GetLength(thisLineIndex),
 			)
-			targetNode := nodeId{
+			targetNode := nodeID{
 				itemIndex:    itemIndex,
 				lineIndex:    thisLineIndex,
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
@@ -129,6 +193,7 @@ func CalculateBreakpoints(
 		if len(edges) == 0 && allActiveNodesToBeDeactivated {
 			problematicItemIndices = append(problematicItemIndices, itemIndex)
 			if fallbackToIllegalSolution {
+				fmt.Println("falling back!")
 				edges = fallbackEdges
 			}
 		}
@@ -141,13 +206,16 @@ func CalculateBreakpoints(
 				item.IsFlaggedBreakpoint(),
 				IsNullableItemFlaggedBreakpoint(itemList.Get(edge.sourceNode.itemIndex)),
 			)
-			totalDemerits := lineDemerits + edge.sourceNode.demerits
 			if logger != nil {
 				logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
-				logger.TotalDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, totalDemerits)
+				logger.TotalDemeritsTable.AddCell(
+					edge.sourceNode,
+					edge.targetNode,
+					lineDemerits+edge.sourceNode.demerits,
+				)
 			}
 			targetNode := activeNodes.add(edge.targetNode)
-			updateTargetNodeIfNewSourceNodeIsBetter(targetNode, edge.sourceNode, totalDemerits)
+			updateTargetNodeIfNewSourceNodeIsBetter(targetNode, edge.sourceNode, lineDemerits)
 		}
 		for _, activeNode := range sourceNodesToDeactivate {
 			activeNodes.delete(activeNode)
@@ -158,7 +226,7 @@ func CalculateBreakpoints(
 	}
 	finalPseudoNode := &node{}
 	for _, activeNode := range activeNodes.idToNode {
-		updateTargetNodeIfNewSourceNodeIsBetter(finalPseudoNode, activeNode, activeNode.demerits)
+		updateTargetNodeIfNewSourceNodeIsBetter(finalPseudoNode, activeNode, 0)
 	}
 	var err *NoSolutionError
 	if len(problematicItemIndices) != 0 {
@@ -190,12 +258,13 @@ func buildBreakpoints(node *node) []int {
 
 // updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided
 // candidatePrevNode if that node results in the targetNode having fewer demerits.
-func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, candidateDemerits float64) {
+func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits float64) {
+	totalDemerits := candidatePrevNode.demerits + edgeDemerits
 	switch true {
-	case targetNode.prevNode == nil || candidateDemerits < targetNode.demerits:
+	case targetNode.prevNode == nil || totalDemerits < targetNode.demerits:
 		targetNode.prevNode = candidatePrevNode
-		targetNode.demerits = candidateDemerits
-	case candidateDemerits == targetNode.demerits:
+		targetNode.demerits = totalDemerits
+	case totalDemerits == targetNode.demerits:
 		targetNode.prevNode = selectSmallerNode(targetNode.prevNode, candidatePrevNode)
 	}
 }
@@ -219,20 +288,6 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 	return node1
 }
 
-// NoSolutionError is returned if the problem has no solution satisfying the optimality constraints
-type NoSolutionError struct {
-	ProblematicItemIndices []int
-}
-
-func (err *NoSolutionError) Error() string {
-	return fmt.Sprintf(
-		"There is no admissible solution given the provided optimality criteria. "+
-			"Non-legal breakpoints occur at the following item indices: %v",
-		err.ProblematicItemIndices,
-	)
-
-}
-
 func calculateAdjustmentRatio(
 	lineWidth int64,
 	lineShrinkability int64,
@@ -252,6 +307,20 @@ func calculateAdjustmentRatio(
 	}
 }
 
+// NoSolutionError is returned if the problem has no solution satisfying the optimality constraints
+type NoSolutionError struct {
+	ProblematicItemIndices []int
+}
+
+func (err *NoSolutionError) Error() string {
+	return fmt.Sprintf(
+		"There is no admissible solution given the provided optimality criteria. "+
+			"Non-legal breakpoints occur at the following item indices: %v",
+		err.ProblematicItemIndices,
+	)
+
+}
+
 type node struct {
 	itemIndex    int
 	lineIndex    int
@@ -260,14 +329,14 @@ type node struct {
 	prevNode     *node
 }
 
-type nodeId struct {
+type nodeID struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass FitnessClass
 }
 
-func (node *node) id() nodeId {
-	return nodeId{
+func (node *node) id() nodeID {
+	return nodeID{
 		itemIndex:    node.itemIndex,
 		lineIndex:    node.lineIndex,
 		fitnessClass: node.fitnessClass,
@@ -275,23 +344,23 @@ func (node *node) id() nodeId {
 }
 
 type nodeSet struct {
-	idToNode map[nodeId]*node
+	idToNode map[nodeID]*node
 }
 
 func newNodeSet() nodeSet {
-	return nodeSet{idToNode: map[nodeId]*node{}}
+	return nodeSet{idToNode: map[nodeID]*node{}}
 }
 
-func (set *nodeSet) add(nodeId nodeId) *node {
-	_, exists := set.idToNode[nodeId]
+func (set *nodeSet) add(nodeID nodeID) *node {
+	_, exists := set.idToNode[nodeID]
 	if !exists {
-		set.idToNode[nodeId] = &node{
-			itemIndex:    nodeId.itemIndex,
-			lineIndex:    nodeId.lineIndex,
-			fitnessClass: nodeId.fitnessClass,
+		set.idToNode[nodeID] = &node{
+			itemIndex:    nodeID.itemIndex,
+			lineIndex:    nodeID.lineIndex,
+			fitnessClass: nodeID.fitnessClass,
 		}
 	}
-	return set.idToNode[nodeId]
+	return set.idToNode[nodeID]
 }
 
 func (set *nodeSet) delete(node *node) {

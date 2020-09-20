@@ -189,6 +189,7 @@ func (*penalty) IsBox() bool {
 	return false
 }
 
+// IsNullableItemFlaggedBreakpoint returns true if the provided item is non-null and is a flagged breakpoint.
 func IsNullableItemFlaggedBreakpoint(item Item) bool {
 	return item != nil && item.IsFlaggedBreakpoint()
 }

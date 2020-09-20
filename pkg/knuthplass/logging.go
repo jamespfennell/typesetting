@@ -1,67 +1,63 @@
 package knuthplass
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"strings"
+)
 
-func NewBreakpointLogger() *BreakpointLogger {
-	tracker := &nodeTracker{
-		nodesInOrder: []nodeId{},
-		nodesSeen:    make(map[nodeId]bool),
-	}
-	return &BreakpointLogger{
-		AdjustmentRatiosTable: NewNodeNodeTable("Adjustment ratios", tracker),
-		LineDemeritsTable:     NewNodeNodeTable("Line demerits", tracker),
-		TotalDemeritsTable:    NewNodeNodeTable("Total demerits", tracker),
-	}
-}
-
+// BreakpointLogger contains data gathered during the Knuth-Plass algorithm.
 type BreakpointLogger struct {
 	AdjustmentRatiosTable *NodeNodeTable
 	LineDemeritsTable     *NodeNodeTable
 	TotalDemeritsTable    *NodeNodeTable
 }
 
-type nodeTracker struct {
-	nodesInOrder []nodeId
-	nodesSeen    map[nodeId]bool
-}
-
-func (tracker *nodeTracker) initNode(thisNode nodeId) {
-	if _, nodeSeen := tracker.nodesSeen[thisNode]; nodeSeen {
-		return
+// NewBreakpointLogger returns a new initialized BreakpointLogger.
+func NewBreakpointLogger() *BreakpointLogger {
+	tracker := &nodeTracker{
+		nodesInOrder: []nodeID{},
+		nodesSeen:    make(map[nodeID]bool),
 	}
-	tracker.nodesSeen[thisNode] = true
-	tracker.nodesInOrder = append(tracker.nodesInOrder, thisNode)
-}
-
-func NewNodeNodeTable(name string, tracker *nodeTracker) *NodeNodeTable {
-	return &NodeNodeTable{
-		name:        name,
-		nodeTracker: tracker,
-		data:        make(map[nodeId]map[nodeId]float64),
+	return &BreakpointLogger{
+		AdjustmentRatiosTable: newNodeNodeTable("Adjustment ratios", tracker),
+		LineDemeritsTable:     newNodeNodeTable("Line demerits", tracker),
+		TotalDemeritsTable:    newNodeNodeTable("Total demerits", tracker),
 	}
 }
 
+// NodeNodeTable is a data structure for holding tabular data where both the row and column indices are nodes.
 type NodeNodeTable struct {
 	name        string
 	nodeTracker *nodeTracker
-	data        map[nodeId]map[nodeId]float64
+	data        map[nodeID]map[nodeID]float64
 }
 
-func (table *NodeNodeTable) AddCell(rowKey *node, colKey nodeId, value float64) {
+// AddCell adds a new data point to the NodeNodeTable (or replaces the data point, if it already exists).
+func (table *NodeNodeTable) AddCell(rowKey *node, colKey nodeID, value float64) {
 	table.nodeTracker.initNode(rowKey.id())
 	table.nodeTracker.initNode(colKey)
 	_, rowExists := table.data[rowKey.id()]
 	if !rowExists {
-		table.data[rowKey.id()] = make(map[nodeId]float64)
+		table.data[rowKey.id()] = make(map[nodeID]float64)
 	}
 	table.data[rowKey.id()][colKey] = value
 }
 
-func (table *NodeNodeTable) Print() {
-	fmt.Println(fmt.Sprintf(" +---[ %s ]---", table.name))
+func fprintf(w io.Writer, format string, a ...interface{}) {
+	_, err := fmt.Fprintf(w, format, a...)
+	if err != nil {
+		fmt.Println("Encountered error when printing to string buffer: ", err)
+	}
+}
+
+func (table *NodeNodeTable) String() string {
+	var b strings.Builder
+	fprintf(&b, " +---[ %s ]---\n", table.name)
 	headerLine := fmt.Sprintf(" | %10s | ", "")
 
-	colKeyToColWidth := make(map[nodeId]int)
+	// Calculate the width of each column
+	colKeyToColWidth := make(map[nodeID]int)
 	for _, colKey := range table.nodeTracker.nodesInOrder {
 		colKeyToColWidth[colKey] = -1.0
 		for _, rowKey := range table.nodeTracker.nodesInOrder {
@@ -76,16 +72,22 @@ func (table *NodeNodeTable) Print() {
 		}
 	}
 
+	// String the header row
+	fprintf(&b, " | %10s | ", "")
 	for _, colKey := range table.nodeTracker.nodesInOrder {
 		if colKeyToColWidth[colKey] < 0 {
 			continue
 		}
 		headerLine = headerLine + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey], buildNodeLabel(colKey))
+		fprintf(&b, " %*s |", colKeyToColWidth[colKey], buildNodeLabel(colKey))
 	}
+	fprintf(&b, "\n")
 
-	fmt.Println(headerLine)
 	for _, rowKey := range table.nodeTracker.nodesInOrder {
-		line := fmt.Sprintf(" | %10s | ", buildNodeLabel(rowKey))
+		// We store this row's data in another buffer. If there is no data in the whole row, we won't print it.
+		var lineB strings.Builder
+		fprintf(&lineB, " | %10s | ", buildNodeLabel(rowKey))
+
 		rowHasValues := false
 		for _, colKey := range table.nodeTracker.nodesInOrder {
 			if colKeyToColWidth[colKey] < 0 {
@@ -94,22 +96,45 @@ func (table *NodeNodeTable) Print() {
 			value, hasValue := table.data[rowKey][colKey]
 			if hasValue {
 				stringValue := fmt.Sprintf("%6.2f", value)
-				line = line + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey], stringValue)
+				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey], stringValue)
 				rowHasValues = true
 			} else {
-				line = line + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey], "")
+				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey], "")
 			}
 		}
 		if !rowHasValues {
 			continue
 		}
-		fmt.Println(line)
+		fprintf(&b, lineB.String())
+		fprintf(&b, "\n")
 	}
-	fmt.Println(" +----")
-	fmt.Println(" Node id: [item index]/[line index]/[fitness class]. Line index may...")
-	fmt.Println()
+	fprintf(&b, " +----")
+	fprintf(&b, " Node id: [item index]/[line index]/[fitness class]. Line index may...")
+	fprintf(&b, "\n")
+	return b.String()
 }
 
-func buildNodeLabel(node nodeId) string {
+func newNodeNodeTable(name string, tracker *nodeTracker) *NodeNodeTable {
+	return &NodeNodeTable{
+		name:        name,
+		nodeTracker: tracker,
+		data:        make(map[nodeID]map[nodeID]float64),
+	}
+}
+
+func buildNodeLabel(node nodeID) string {
 	return fmt.Sprintf("%d/%d/%d", node.itemIndex, node.lineIndex, node.fitnessClass)
+}
+
+type nodeTracker struct {
+	nodesInOrder []nodeID
+	nodesSeen    map[nodeID]bool
+}
+
+func (tracker *nodeTracker) initNode(thisNode nodeID) {
+	if tracker.nodesSeen[thisNode] {
+		return
+	}
+	tracker.nodesSeen[thisNode] = true
+	tracker.nodesInOrder = append(tracker.nodesInOrder, thisNode)
 }

@@ -26,7 +26,7 @@ type OptimalityCriteria interface {
 	CalculateFitnessClass(adjustmentRatio float64) FitnessClass
 }
 
-// TexOptimalityCriteria is the optimiality criteria developed for Tex and described
+// TexOptimalityCriteria is the optimality criteria developed for Tex and described
 // in the Knuth-Plass paper
 type TexOptimalityCriteria struct {
 	MaxAdjustmentRatio            float64 // ro in the paper
@@ -35,15 +35,17 @@ type TexOptimalityCriteria struct {
 	MismatchingFitnessClassCost   float64 // gamma in the paper
 }
 
+// GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
 func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() float64 {
 	return criteria.MaxAdjustmentRatio
 }
 
+// GetLooseness returns the looseness parameter.
 func (criteria TexOptimalityCriteria) GetLooseness() int {
 	return criteria.Looseness
 }
 
-// CalculateDemerits does...
+// CalculateDemerits calculates the demerits of the line following the formulas in the Knuth-Plass paper.
 func (criteria TexOptimalityCriteria) CalculateDemerits(
 	adjustmentRatio float64,
 	fitnessClass FitnessClass,
@@ -62,12 +64,12 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 		demerits = demerits + criteria.ConsecutiveFlaggedPenaltyCost
 	}
 	if fitnessClass-prevFitnessClass > 1 || fitnessClass-prevFitnessClass < -1 {
-		// fmt.Println("Adding penalty for mismatching fitness class", adjustmentRatio)
 		demerits = demerits + criteria.MismatchingFitnessClassCost
 	}
 	return
 }
 
+// CalculateFitnessClass calculates the fitness class of the line following the formulas in the Knuth-Plass paper.
 func (TexOptimalityCriteria) CalculateFitnessClass(adjustmentRatio float64) FitnessClass {
 	// Binary search essentially...
 	if adjustmentRatio <= 0.5 {
