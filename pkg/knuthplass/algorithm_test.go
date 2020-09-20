@@ -8,7 +8,7 @@ import (
 // We're missing a large "happy case" test with many lines, kind of hard to generate though.
 // Also a test for the looseness !=0 case. Probably would be good to re-use the test described above.
 
-func TestVariableLineLengths(t *testing.T) {
+func TestVariableLineLengthsBreakpoints(t *testing.T) {
 	lineLengths := NewVariableLineLengths([]int64{100, 200, 150}, 50)
 	items := []Item{
 		NewBox(50),

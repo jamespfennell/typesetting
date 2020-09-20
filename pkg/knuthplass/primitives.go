@@ -189,18 +189,17 @@ func (*penalty) IsBox() bool {
 	return false
 }
 
-// IsNullableItemFlaggedBreakpoint returns true if the provided item is non-null and is a flagged breakpoint.
-func IsNullableItemFlaggedBreakpoint(item Item) bool {
-	return item != nil && item.IsFlaggedBreakpoint()
-}
-
 // ItemList is a data structure representing an ordered list of items and common operations on them.
 //
 // It can be used to find the total width, shrinkability and stretchability of a list of items representing a line.
 // These computations incorporate various pieces of logic; for example,
+//
 // - a glue item at the end of a lineIndex does not contribute to any of these quantities
+//
 // - a penalty item only contributes if it is at the end of a lineIndex.
+//
 // - all items before the first box in a lineIndex are ignored
+//
 // In addition, the data structure is implemented such that all of these computations are fast (constant in time).
 type ItemList struct {
 	aggregateWidth          []int64
