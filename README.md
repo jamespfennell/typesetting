@@ -1,3 +1,7 @@
+NOTE: this code does not have a licence yet while I figure out
+    the licensing terms with my employer.
+It will have an open source licence soon!
+
 # Typesetting repo
 
 This work-in-progress repo hosts a collection of interelated Go packages

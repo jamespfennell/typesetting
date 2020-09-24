@@ -25,4 +25,3 @@ func (err *SetLineError) IsUnderfull() bool {
 func SetLine(itemList *ItemList, lineLength int64) ([]FixedItem, *SetLineError) {
 	return nil, nil
 }
-g
