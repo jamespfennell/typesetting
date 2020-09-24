@@ -16,6 +16,7 @@ package knuthplass
 
 import (
 	"fmt"
+	d "github.com/jamespfennell/typesetting/pkg/dimension"
 )
 
 // CalculateBreakpointsResult stores the result of the CalculateBreakpoints Knuth-Plass algorithm.
@@ -220,6 +221,11 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 		return node2
 	}
 	return node1
+}
+
+type adjustmentRatio struct {
+	numerator d.Dim
+	denominator d.Dim
 }
 
 func calculateAdjustmentRatio(
