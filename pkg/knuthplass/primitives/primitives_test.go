@@ -1,4 +1,4 @@
-package knuthplass
+package primitives
 
 import (
 	d "github.com/jamespfennell/typesetting/pkg/distance"

@@ -17,6 +17,9 @@ package knuthplass
 import (
 	"fmt"
 	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/criteria"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/lines"
+	p "github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
 )
 
 // CalculateBreakpointsResult stores the result of the CalculateBreakpoints Knuth-Plass algorithm.
@@ -51,9 +54,9 @@ type CalculateBreakpointsResult struct {
 // Consult the documentation on the output type CalculateBreakpointsResult for more information on this function
 // and its parameters.
 func CalculateBreakpoints(
-	itemList *ItemList,
-	lineLengths LineLengths,
-	criteria OptimalityCriteria,
+	itemList *p.ItemList,
+	lineLengths lines.LineLengths,
+	criteria criteria.OptimalityCriteria,
 	fallbackToIllegalSolution bool,
 	enableLogging bool,
 ) CalculateBreakpointsResult {
@@ -108,7 +111,7 @@ func CalculateBreakpoints(
 			if logger != nil {
 				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio)
 			}
-			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
+			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= p.NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
 			} else {
 				allActiveNodesToBeDeactivated = false
@@ -193,7 +196,7 @@ func buildBreakpoints(node *node) []int {
 
 // updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided
 // candidatePrevNode if that node results in the targetNode having fewer demerits.
-func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits Demerits) {
+func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits criteria.Demerits) {
 	totalDemerits := candidatePrevNode.demerits + edgeDemerits
 	switch true {
 	case targetNode.prevNode == nil || totalDemerits < targetNode.demerits:
@@ -233,7 +236,7 @@ func calculateAdjustmentRatio(
 	case lineWidth > targetLineWidth:
 		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineShrinkability}
 	case lineWidth < targetLineWidth:
-		if lineStretchability >= InfiniteStretchability {
+		if lineStretchability >= p.InfiniteStretchability {
 			return d.ZeroRatio
 		}
 		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineStretchability}
@@ -259,15 +262,15 @@ func (err *NoSolutionError) Error() string {
 type node struct {
 	itemIndex    int
 	lineIndex    int
-	fitnessClass FitnessClass
-	demerits     Demerits
+	fitnessClass criteria.FitnessClass
+	demerits     criteria.Demerits
 	prevNode     *node
 }
 
 type nodeID struct {
 	itemIndex    int
 	lineIndex    int
-	fitnessClass FitnessClass
+	fitnessClass criteria.FitnessClass
 }
 
 func (node *node) id() nodeID {

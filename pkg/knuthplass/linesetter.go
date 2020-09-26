@@ -1,6 +1,9 @@
 package knuthplass
 
-import d "github.com/jamespfennell/typesetting/pkg/distance"
+import (
+	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
+)
 
 type FixedItem struct {
 	Visible bool
@@ -24,7 +27,7 @@ func (err *SetLineError) IsUnderfull() bool {
 	return !err.IsOverfull()
 }
 
-func SetLine(itemList *ItemList, lineLength d.Distance) ([]FixedItem, *SetLineError) {
+func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem, *SetLineError) {
 	fixedItems := make([]FixedItem, itemList.Length())
 	firstBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {

@@ -1,8 +1,9 @@
-package knuthplass
+package criteria
 
 import (
 	"fmt"
 	d "github.com/jamespfennell/typesetting/pkg/distance"
+	p "github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
 )
 
 // FitnessClass can be thought of as an enum type: it classifies lines into a class
@@ -19,16 +20,6 @@ func (demerits Demerits) String() string {
 	return fmt.Sprintf("%d", demerits)
 }
 
-type PenaltyCost int64
-
-func (cost PenaltyCost) IsPositiveInfinite() bool {
-	return cost >= PosInfBreakpointPenalty
-}
-
-func (cost PenaltyCost) IsNegativeInfinite() bool {
-	return cost <= NegInfBreakpointPenalty
-}
-
 // OptimalityCriteria contains all of the data to optimize
 type OptimalityCriteria interface {
 	GetMaxAdjustmentRatio() d.Ratio
@@ -37,7 +28,7 @@ type OptimalityCriteria interface {
 		adjustmentRatio d.Ratio,
 		fitnessClass FitnessClass,
 		prevFitnessClass FitnessClass,
-		penaltyCost PenaltyCost,
+		penaltyCost p.PenaltyCost,
 		isFlaggedPenalty bool,
 		isPrevFlaggedPenalty bool) Demerits
 	CalculateFitnessClass(adjustmentRatio d.Ratio) FitnessClass
@@ -46,10 +37,10 @@ type OptimalityCriteria interface {
 // TexOptimalityCriteria is the optimality criteria developed for Tex and described
 // in the Knuth-Plass paper
 type TexOptimalityCriteria struct {
-	MaxAdjustmentRatio            d.Ratio // ro in the paper
-	Looseness                     int     // q in the paper
-	ConsecutiveFlaggedPenaltyCost PenaltyCost // alpha in the paper
-	MismatchingFitnessClassCost   PenaltyCost // gamma in the paper
+	MaxAdjustmentRatio            d.Ratio       // ro in the paper
+	Looseness                     int           // q in the paper
+	ConsecutiveFlaggedPenaltyCost p.PenaltyCost // alpha in the paper
+	MismatchingFitnessClassCost   p.PenaltyCost // gamma in the paper
 }
 
 // GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
@@ -67,7 +58,7 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	adjustmentRatio d.Ratio,
 	fitnessClass FitnessClass,
 	prevFitnessClass FitnessClass,
-	penaltyCost PenaltyCost,
+	penaltyCost p.PenaltyCost,
 	isFlaggedPenalty bool,
 	isPrevFlaggedPenalty bool) (demerits Demerits) {
 	// Section 858 of the Tex source

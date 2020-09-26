@@ -1,4 +1,4 @@
-package knuthplass
+package primitives
 
 import (
 	"errors"
@@ -127,6 +127,16 @@ func (*glue) IsValidBreakpoint(precedingItem Item) bool {
 
 func (*glue) IsBox() bool {
 	return false
+}
+
+type PenaltyCost int64
+
+func (cost PenaltyCost) IsPositiveInfinite() bool {
+	return cost >= PosInfBreakpointPenalty
+}
+
+func (cost PenaltyCost) IsNegativeInfinite() bool {
+	return cost <= NegInfBreakpointPenalty
 }
 
 // PosInfBreakpointPenalty represents an infinitely positive penalty which makes it forbidden for the associated item
