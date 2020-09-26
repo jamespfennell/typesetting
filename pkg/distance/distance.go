@@ -8,6 +8,11 @@ package distance
 // The number of fractional bits is chosen to exactly match the standard implementation of Tex.
 type Distance int64
 
+// TODO: use this for adjustment ratios
+type Ratio struct {
+	Num Distance
+	Den Distance
+}
 type Fraction struct {
 	Numerator int64
 	Denominator int64

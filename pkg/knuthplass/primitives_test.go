@@ -1,6 +1,9 @@
 package knuthplass
 
-import "testing"
+import (
+	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"testing"
+)
 
 func TestIsValidBreakpoint(t *testing.T) {
 	paramsList := []struct {
@@ -56,9 +59,9 @@ func TestLineData(t *testing.T) {
 	paramsList := []struct {
 		previousBreakpoint     int
 		thisBreakpoint         int
-		expectedWidth          int64
-		expectedShrinkability  int64
-		expectedStretchability int64
+		expectedWidth          d.Distance
+		expectedShrinkability  d.Distance
+		expectedStretchability d.Distance
 	}{
 		{-1, 2, 1 + 2 + 3, 10, 100},             // First lineIndex is correct
 		{-1, 3, 1 + 2 + 3, 10, 100},             // First lineIndex is correct + end glue ignored

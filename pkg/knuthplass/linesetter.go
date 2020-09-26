@@ -1,13 +1,15 @@
 package knuthplass
 
+import d "github.com/jamespfennell/typesetting/pkg/distance"
+
 type FixedItem struct {
 	Visible bool
-	Width   int64
+	Width   d.Distance
 }
 
 type SetLineError struct {
-	TargetLineLength int64
-	ActualLineLength int64
+	TargetLineLength d.Distance
+	ActualLineLength d.Distance
 }
 
 func (err *SetLineError) Error() string {
@@ -22,7 +24,7 @@ func (err *SetLineError) IsUnderfull() bool {
 	return !err.IsOverfull()
 }
 
-func SetLine(itemList *ItemList, lineLength int64) ([]FixedItem, *SetLineError) {
+func SetLine(itemList *ItemList, lineLength d.Distance) ([]FixedItem, *SetLineError) {
 	fixedItems := make([]FixedItem, itemList.Length())
 	firstBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {

@@ -14,29 +14,29 @@ type FitnessClass int8
 
 // OptimalityCriteria contains all of the data to optimize
 type OptimalityCriteria interface {
-	GetMaxAdjustmentRatio() float64
+	GetMaxAdjustmentRatio() adjustmentRatio
 	GetLooseness() int
 	CalculateDemerits(
-		adjustmentRatio float64,
+		adjustmentRatio adjustmentRatio,
 		fitnessClass FitnessClass,
 		prevFitnessClass FitnessClass,
 		penaltyCost int64,
 		isFlaggedPenalty bool,
 		isPrevFlaggedPenalty bool) float64
-	CalculateFitnessClass(adjustmentRatio float64) FitnessClass
+	CalculateFitnessClass(adjustmentRatio adjustmentRatio) FitnessClass
 }
 
 // TexOptimalityCriteria is the optimality criteria developed for Tex and described
 // in the Knuth-Plass paper
 type TexOptimalityCriteria struct {
-	MaxAdjustmentRatio            float64 // ro in the paper
+	MaxAdjustmentRatio            adjustmentRatio // ro in the paper
 	Looseness                     int     // q in the paper
 	ConsecutiveFlaggedPenaltyCost float64 // alpha in the paper
 	MismatchingFitnessClassCost   float64 // gamma in the paper
 }
 
 // GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
-func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() float64 {
+func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() adjustmentRatio {
 	return criteria.MaxAdjustmentRatio
 }
 
@@ -47,19 +47,21 @@ func (criteria TexOptimalityCriteria) GetLooseness() int {
 
 // CalculateDemerits calculates the demerits of the line following the formulas in the Knuth-Plass paper.
 func (criteria TexOptimalityCriteria) CalculateDemerits(
-	adjustmentRatio float64,
+	adjustmentRatio adjustmentRatio,
 	fitnessClass FitnessClass,
 	prevFitnessClass FitnessClass,
 	penaltyCost int64,
 	isFlaggedPenalty bool,
 	isPrevFlaggedPenalty bool) (demerits float64) {
 	// Section 858 of the Tex source
+	// TODO: don't cast to float
+	badness := float64(calculateBadness(int64(adjustmentRatio.num), int64(adjustmentRatio.den)))
 	if penaltyCost >= 0 {
-		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3)+float64(penaltyCost), 2)
+		demerits = math.Pow(1+badness+float64(penaltyCost), 2)
 	} else if penaltyCost > NegInfBreakpointPenalty {
-		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2) - float64(penaltyCost*penaltyCost)
+		demerits = math.Pow(1+badness, 2) - float64(penaltyCost*penaltyCost)
 	} else {
-		demerits = math.Pow(1+100*math.Pow(adjustmentRatio, 3), 2)
+		demerits = math.Pow(1+badness, 2)
 	}
 	if isFlaggedPenalty && isPrevFlaggedPenalty {
 		demerits = demerits + criteria.ConsecutiveFlaggedPenaltyCost
@@ -70,7 +72,7 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	return
 }
 
-// calculateBadness calculates the badness of an adjustment ratio.
+// calculateBadness calculates the badness of an adjustment ratio. It is approximately 100 * ratio^3.
 //
 // The badness is essentially what the Knuth-Plass algorithm is trying to minimize, and hence to get identical results
 // to Tex "all implementations of TeX should use precisely this method" as Knuth says in section 108. Through some
@@ -107,15 +109,15 @@ func calculateBadness(numerator int64, denominator int64) int64 {
 }
 
 // CalculateFitnessClass calculates the fitness class of the line following the formulas in the Knuth-Plass paper.
-func (TexOptimalityCriteria) CalculateFitnessClass(adjustmentRatio float64) FitnessClass {
+func (TexOptimalityCriteria) CalculateFitnessClass(ratio adjustmentRatio) FitnessClass {
 	// Binary search essentially...
-	if adjustmentRatio <= 0.5 {
-		if adjustmentRatio <= -0.5 {
-			return -1
+	if ratio.lessThanEqual(adjustmentRatio{1,2}) {
+		if ratio.lessThanEqual(adjustmentRatio{-1, 2}) {
+				return -1
 		}
 		return 0
 	}
-	if adjustmentRatio <= 1 {
+	if ratio.lessThanEqual(adjustmentRatio{1, 1})  {
 		return 1
 	}
 	return 2

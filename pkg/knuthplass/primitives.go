@@ -2,6 +2,7 @@ package knuthplass
 
 import (
 	"errors"
+	d "github.com/jamespfennell/typesetting/pkg/distance"
 )
 
 // Item is a primitive element in the Knuth-Plass typesetting algorithm.
@@ -9,20 +10,20 @@ import (
 // consumers to interact with Items using polymorphism.
 type Item interface {
 	// Width returns the ideal width of the item.
-	Width() int64
+	Width() d.Distance
 
 	// EndOfLineWidth returns the ideal width of the item, if that item appears at the end of a line.
 	// Concretely, penalty items have width 0 unless they appear at the end of a line, whereas glue items have width
 	// 0 when they appear at the end of a line.
-	EndOfLineWidth() int64
+	EndOfLineWidth() d.Distance
 
 	// Shrinkability returns a quantity by which the item may be shrunk proportional to.
 	// The item will be shrunk at most one times this amount.
-	Shrinkability() int64
+	Shrinkability() d.Distance
 
 	// Stretchability returns a quantity by which the item may be stretched proportional to.
 	// The item may be stretched by many times this amount, though with a large breakpointPenalty.
-	Stretchability() int64
+	Stretchability() d.Distance
 
 	// BreakpointPenalty returns the additional penalty assessed if a line breaks at this item.
 	BreakpointPenalty() int64
@@ -42,27 +43,27 @@ type Item interface {
 }
 
 // NewBox creates and returns a new box item.
-func NewBox(width int64) Item {
+func NewBox(width d.Distance) Item {
 	return &box{width: width}
 }
 
 type box struct {
-	width int64
+	width d.Distance
 }
 
-func (box *box) Width() int64 {
+func (box *box) Width() d.Distance {
 	return box.width
 }
 
-func (box *box) EndOfLineWidth() int64 {
+func (box *box) EndOfLineWidth() d.Distance {
 	return box.width
 }
 
-func (*box) Shrinkability() int64 {
+func (*box) Shrinkability() d.Distance {
 	return 0
 }
 
-func (*box) Stretchability() int64 {
+func (*box) Stretchability() d.Distance {
 	return 0
 }
 
@@ -83,29 +84,29 @@ func (*box) IsBox() bool {
 }
 
 // NewGlue creates and returns a new glue item.
-func NewGlue(width int64, shrinkability int64, stretchability int64) Item {
+func NewGlue(width d.Distance, shrinkability d.Distance, stretchability d.Distance) Item {
 	return &glue{width: width, shrinkability: shrinkability, stretchability: stretchability}
 }
 
 type glue struct {
-	width          int64
-	shrinkability  int64
-	stretchability int64
+	width          d.Distance
+	shrinkability  d.Distance
+	stretchability d.Distance
 }
 
-func (glue *glue) Width() int64 {
+func (glue *glue) Width() d.Distance {
 	return glue.width
 }
 
-func (glue *glue) EndOfLineWidth() int64 {
+func (glue *glue) EndOfLineWidth() d.Distance {
 	return 0
 }
 
-func (glue *glue) Shrinkability() int64 {
+func (glue *glue) Shrinkability() d.Distance {
 	return glue.shrinkability
 }
 
-func (glue *glue) Stretchability() int64 {
+func (glue *glue) Stretchability() d.Distance {
 	return glue.stretchability
 }
 
@@ -139,10 +140,10 @@ const NegInfBreakpointPenalty int64 = -10000
 // InfiniteStretchability is a stretchability constant such that the item can be stretched an arbitrary amount with
 // no breakpoint penalty (or at least, no contribution to the adjustment ratio).
 // Any stretchability larger than InfiniteStretchability is, itself, considered infinite.
-const InfiniteStretchability int64 = 100000
+const InfiniteStretchability d.Distance = 100000
 
 // NewPenalty creates and returns a new penalty item.
-func NewPenalty(width int64, breakpointPenalty int64, isFlagged bool) Item {
+func NewPenalty(width d.Distance, breakpointPenalty int64, isFlagged bool) Item {
 	if breakpointPenalty > PosInfBreakpointPenalty {
 		breakpointPenalty = PosInfBreakpointPenalty
 	} else if breakpointPenalty < NegInfBreakpointPenalty {
@@ -152,24 +153,24 @@ func NewPenalty(width int64, breakpointPenalty int64, isFlagged bool) Item {
 }
 
 type penalty struct {
-	width             int64
+	width             d.Distance
 	breakpointPenalty int64
 	isFlagged         bool
 }
 
-func (penalty *penalty) Width() int64 {
+func (penalty *penalty) Width() d.Distance {
 	return 0
 }
 
-func (penalty *penalty) EndOfLineWidth() int64 {
+func (penalty *penalty) EndOfLineWidth() d.Distance {
 	return penalty.width
 }
 
-func (*penalty) Shrinkability() int64 {
+func (*penalty) Shrinkability() d.Distance {
 	return 0
 }
 
-func (*penalty) Stretchability() int64 {
+func (*penalty) Stretchability() d.Distance {
 	return 0
 }
 
@@ -202,9 +203,9 @@ func (*penalty) IsBox() bool {
 //
 // In addition, the data structure is implemented such that all of these computations are fast (constant in time).
 type ItemList struct {
-	aggregateWidth          []int64
-	aggregateShrinkability  []int64
-	aggregateStretchability []int64
+	aggregateWidth          []d.Distance
+	aggregateShrinkability  []d.Distance
+	aggregateStretchability []d.Distance
 	positionToNextBoxOffset []int
 	items                   []Item
 }
@@ -241,9 +242,9 @@ func (itemList *ItemList) Slice(a int, b int) *ItemList {
 // NewItemList constructs an ItemList from the provided slice of Items.
 func NewItemList(items []Item) *ItemList {
 	lineData := &ItemList{
-		aggregateWidth:          make([]int64, len(items)+1),
-		aggregateShrinkability:  make([]int64, len(items)+1),
-		aggregateStretchability: make([]int64, len(items)+1),
+		aggregateWidth:          make([]d.Distance, len(items)+1),
+		aggregateShrinkability:  make([]d.Distance, len(items)+1),
+		aggregateStretchability: make([]d.Distance, len(items)+1),
 		positionToNextBoxOffset: make([]int, len(items)),
 		items:                   items,
 	}
@@ -292,7 +293,7 @@ func (itemList *ItemList) FirstBoxIndex() (int, error) {
 }
 
 // Width returns the width of a line consisting of elements of the ItemList.
-func (itemList *ItemList) Width() int64 {
+func (itemList *ItemList) Width() d.Distance {
 	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0
@@ -304,7 +305,7 @@ func (itemList *ItemList) Width() int64 {
 }
 
 // Shrinkability returns the shrinkability of a line consisting of elements of the ItemList.
-func (itemList *ItemList) Shrinkability() int64 {
+func (itemList *ItemList) Shrinkability() d.Distance {
 	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0
@@ -315,7 +316,7 @@ func (itemList *ItemList) Shrinkability() int64 {
 }
 
 // Stretchability returns the stretchability of a line consisting of elements of the ItemList.
-func (itemList *ItemList) Stretchability() int64 {
+func (itemList *ItemList) Stretchability() d.Distance {
 	nextBoxIndex, err := itemList.FirstBoxIndex()
 	if err != nil {
 		return 0

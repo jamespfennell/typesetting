@@ -6,7 +6,7 @@ import (
 
 func main() {
 
-	items := []knuthplass.Item{
+	_ = []knuthplass.Item{
 		knuthplass.NewBox(60),
 		knuthplass.NewGlue(20, 7, 20),
 		knuthplass.NewBox(60),
@@ -18,8 +18,8 @@ func main() {
 		knuthplass.NewPenalty(0, knuthplass.NegInfBreakpointPenalty, false),
 	}
 	// expectedBreakpoints := []int{5, 8}
-	criteria := knuthplass.TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
+	// criteria := knuthplass.TexOptimalityCriteria{MaxAdjustmentRatio: 200000}
 	// actualBreakpoints, err :=
-	knuthplass.CalculateBreakpoints(knuthplass.NewItemList(items), knuthplass.NewConstantLineLengths(270), criteria, false, true)
+	// knuthplass.CalculateBreakpoints(knuthplass.NewItemList(items), knuthplass.NewConstantLineLengths(270), criteria, false, true)
 
 }
