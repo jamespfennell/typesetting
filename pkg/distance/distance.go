@@ -1,11 +1,12 @@
-// Package dimension defines the numeric dimension type used in GoTex and operations on it.
-package dimension
+// Package distance defines the numeric distance type used in GoTex and operations on it.
+package distance
 
-// Dim is the numeric dimension type used in GoTex.
+// Distance is the numeric distance type used in GoTex.
+// It measures distances is points.
 // It is a fixed point number with 16 bits in the fractional part, 47 bits in the integral part, and 1 bit for the
 // sign.
 // The number of fractional bits is chosen to exactly match the standard implementation of Tex.
-type Dim int64
+type Distance int64
 
 type Fraction struct {
 	Numerator int64
@@ -16,9 +17,9 @@ func (fraction Fraction) Floor() int64 {
 	return fraction.Numerator / fraction.Denominator
 }
 
-func NewDim(unit *Unit, magnitude Fraction) Dim {
+func NewDim(unit *Unit, magnitude Fraction) Distance {
 	if unit == ScaledPoint {
-		return Dim(magnitude.Floor())
+		return Distance(magnitude.Floor())
 	}
 	return 0
 }
