@@ -274,7 +274,7 @@ type nodeID struct {
 	fitnessClass criteria.FitnessClass
 }
 
-func (node nodeID) Key() string {
+func (node nodeID) ID() string {
 	return fmt.Sprintf("%d/%d/%d", node.itemIndex, node.lineIndex, node.fitnessClass)
 }
 

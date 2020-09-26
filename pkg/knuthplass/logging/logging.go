@@ -8,48 +8,44 @@ import (
 
 // BreakpointLogger contains data gathered during the Knuth-Plass algorithm.
 type BreakpointLogger struct {
-	AdjustmentRatiosTable *NodeNodeTable
-	LineDemeritsTable     *NodeNodeTable
-	TotalDemeritsTable    *NodeNodeTable
+	AdjustmentRatiosTable *Table
+	LineDemeritsTable     *Table
+	TotalDemeritsTable    *Table
 }
 
 // NewBreakpointLogger returns a new initialized BreakpointLogger.
 func NewBreakpointLogger() *BreakpointLogger {
-	tracker := &nodeTracker{
-		nodesInOrder: []keyable{},
-		nodesSeen:    make(map[string]bool),
-	}
 	return &BreakpointLogger{
-		AdjustmentRatiosTable: newNodeNodeTable("Adjustment ratios", tracker),
-		LineDemeritsTable:     newNodeNodeTable("Line demerits", tracker),
-		TotalDemeritsTable:    newNodeNodeTable("Total demerits", tracker),
+		AdjustmentRatiosTable: NewTable("Adjustment ratios"),
+		LineDemeritsTable:     NewTable("Line demerits"),
+		TotalDemeritsTable:    NewTable("Total demerits"),
 	}
 }
 
-type keyable interface {
-	Key() string
+type Key interface {
+	ID() string
 }
 
-type stringable interface {
+type DataPoint interface {
 	String() string
 }
 
-// NodeNodeTable is a data structure for holding tabular data where both the row and column indices are nodes.
-type NodeNodeTable struct {
-	name        string
-	nodeTracker *nodeTracker
-	data        map[string]map[string]stringable
+// Table is a data structure for holding tabular data where both the row and column indices are Keys.
+type Table struct {
+	name       string
+	keyTracker keyTracker
+	data       map[string]map[string]DataPoint
 }
 
-// AddCell adds a new data point to the NodeNodeTable (or replaces the data point, if it already exists).
-func (table *NodeNodeTable) AddCell(rowKey keyable, colKey keyable, value stringable) {
-	table.nodeTracker.initNode(rowKey)
-	table.nodeTracker.initNode(colKey)
-	_, rowExists := table.data[rowKey.Key()]
+// AddCell adds a new data point to the Table (or replaces the data point, if it already exists).
+func (table *Table) AddCell(row Key, col Key, value DataPoint) {
+	table.keyTracker.initNode(row)
+	table.keyTracker.initNode(col)
+	_, rowExists := table.data[row.ID()]
 	if !rowExists {
-		table.data[rowKey.Key()] = make(map[string]stringable)
+		table.data[row.ID()] = make(map[string]DataPoint)
 	}
-	table.data[rowKey.Key()][colKey.Key()] = value
+	table.data[row.ID()][col.ID()] = value
 }
 
 func fprintf(w io.Writer, format string, a ...interface{}) {
@@ -59,55 +55,55 @@ func fprintf(w io.Writer, format string, a ...interface{}) {
 	}
 }
 
-func (table *NodeNodeTable) String() string {
+func (table *Table) String() string {
 	var b strings.Builder
 	fprintf(&b, " +---[ %s ]---\n", table.name)
 	headerLine := fmt.Sprintf(" | %10s | ", "")
 
 	// Calculate the width of each column
 	colKeyToColWidth := make(map[string]int)
-	for _, colKey := range table.nodeTracker.nodesInOrder {
-		colKeyToColWidth[colKey.Key()] = -1.0
-		for _, rowKey := range table.nodeTracker.nodesInOrder {
-			value, hasValue := table.data[rowKey.Key()][colKey.Key()]
+	for _, colKey := range table.keyTracker.keysInOrder {
+		colKeyToColWidth[colKey.ID()] = -1.0
+		for _, rowKey := range table.keyTracker.keysInOrder {
+			value, hasValue := table.data[rowKey.ID()][colKey.ID()]
 			if !hasValue {
 				continue
 			}
 			stringValue := fmt.Sprintf("%9s", value)
-			if len(stringValue) > colKeyToColWidth[colKey.Key()] {
-				colKeyToColWidth[colKey.Key()] = len(stringValue)
+			if len(stringValue) > colKeyToColWidth[colKey.ID()] {
+				colKeyToColWidth[colKey.ID()] = len(stringValue)
 			}
 		}
 	}
 
 	// String the header row
 	fprintf(&b, " | %10s | ", "")
-	for _, colKey := range table.nodeTracker.nodesInOrder {
-		if colKeyToColWidth[colKey.Key()] < 0 {
+	for _, colKey := range table.keyTracker.keysInOrder {
+		if colKeyToColWidth[colKey.ID()] < 0 {
 			continue
 		}
-		headerLine = headerLine + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey.Key()], colKey.Key())
-		fprintf(&b, " %*s |", colKeyToColWidth[colKey.Key()], colKey.Key())
+		headerLine = headerLine + fmt.Sprintf(" %*s |", colKeyToColWidth[colKey.ID()], colKey.ID())
+		fprintf(&b, " %*s |", colKeyToColWidth[colKey.ID()], colKey.ID())
 	}
 	fprintf(&b, "\n")
 
-	for _, rowKey := range table.nodeTracker.nodesInOrder {
+	for _, rowKey := range table.keyTracker.keysInOrder {
 		// We store this row's data in another buffer. If there is no data in the whole row, we won't print it.
 		var lineB strings.Builder
-		fprintf(&lineB, " | %10s | ", rowKey.Key())
+		fprintf(&lineB, " | %10s | ", rowKey.ID())
 
 		rowHasValues := false
-		for _, colKey := range table.nodeTracker.nodesInOrder {
-			if colKeyToColWidth[colKey.Key()] < 0 {
+		for _, colKey := range table.keyTracker.keysInOrder {
+			if colKeyToColWidth[colKey.ID()] < 0 {
 				continue
 			}
-			value, hasValue := table.data[rowKey.Key()][colKey.Key()]
+			value, hasValue := table.data[rowKey.ID()][colKey.ID()]
 			if hasValue {
 				stringValue := fmt.Sprintf("%9s", value)
-				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey.Key()], stringValue)
+				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey.ID()], stringValue)
 				rowHasValues = true
 			} else {
-				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey.Key()], "")
+				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey.ID()], "")
 			}
 		}
 		if !rowHasValues {
@@ -122,23 +118,29 @@ func (table *NodeNodeTable) String() string {
 	return b.String()
 }
 
-func newNodeNodeTable(name string, tracker *nodeTracker) *NodeNodeTable {
-	return &NodeNodeTable{
-		name:        name,
-		nodeTracker: tracker,
-		data:        make(map[string]map[string]stringable),
+func NewTable(name string) *Table {
+	return &Table{
+		name:       name,
+		keyTracker: newKeyTracker(),
+		data:       make(map[string]map[string]DataPoint),
 	}
 }
 
-type nodeTracker struct {
-	nodesInOrder []keyable
-	nodesSeen    map[string]bool
+type keyTracker struct {
+	keysInOrder []Key
+	keysSeen    map[string]bool
 }
 
-func (tracker *nodeTracker) initNode(thisNode keyable) {
-	if tracker.nodesSeen[thisNode.Key()] {
+func newKeyTracker() keyTracker {
+	return keyTracker{
+		keysInOrder: []Key{},
+		keysSeen:    make(map[string]bool),
+	}
+}
+func (tracker *keyTracker) initNode(thisNode Key) {
+	if tracker.keysSeen[thisNode.ID()] {
 		return
 	}
-	tracker.nodesSeen[thisNode.Key()] = true
-	tracker.nodesInOrder = append(tracker.nodesInOrder, thisNode)
+	tracker.keysSeen[thisNode.ID()] = true
+	tracker.keysInOrder = append(tracker.keysInOrder, thisNode)
 }

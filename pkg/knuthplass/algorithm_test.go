@@ -221,7 +221,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 	for _, params := range paramsList {
 		t.Run(params.name, func(t *testing.T) {
 			criteria := criteria2.TexOptimalityCriteria{
-				MaxAdjustmentRatio:            d.Ratio{10, 1},
+				MaxAdjustmentRatio:            d.Ratio{Num: 10, Den: 1},
 				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
 			}
 			result := CalculateBreakpoints(primitives.NewItemList(items), lines.NewConstantLineLengths(340), criteria, false, true)
@@ -265,7 +265,7 @@ func TestDifferentClasses(t *testing.T) {
 	for _, params := range paramsList {
 		t.Run(params.name, func(t *testing.T) {
 			criteria := criteria2.TexOptimalityCriteria{
-				MaxAdjustmentRatio:          d.Ratio{10, 1},
+				MaxAdjustmentRatio:          d.Ratio{Num: 10, Den: 1},
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
 			result := CalculateBreakpoints(primitives.NewItemList(items), lines.NewConstantLineLengths(200), criteria, false, true)
