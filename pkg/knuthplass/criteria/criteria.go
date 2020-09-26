@@ -10,7 +10,7 @@ import (
 // represented by a value. The classification is only as a function of the adjustment ratio.
 // The demerits function has access to the previous class.
 // Note that the Knuth-Plass algorithm is O(# of fitness classes)
-// so be conservative! The default optimiality criteria divides lines into 4 fitness
+// so be conservative! The default optimality criteria divides lines into 4 fitness
 // classes
 type FitnessClass int8
 
@@ -41,6 +41,7 @@ type TexOptimalityCriteria struct {
 	Looseness                     int           // q in the paper
 	ConsecutiveFlaggedPenaltyCost p.PenaltyCost // alpha in the paper
 	MismatchingFitnessClassCost   p.PenaltyCost // gamma in the paper
+	LinePenalty                   p.PenaltyCost // Doesn't appear in the paper
 }
 
 // GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
@@ -60,27 +61,24 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	prevFitnessClass FitnessClass,
 	penaltyCost p.PenaltyCost,
 	isFlaggedPenalty bool,
-	isPrevFlaggedPenalty bool) (demerits Demerits) {
-	// Section 858 of the Tex source
-	badness := calculateBadness(adjustmentRatio)
-	intDemerits := int64(0)
-	if penaltyCost >= 0 {
-		intDemerits = square(1 + badness + int64(penaltyCost))
+	isPrevFlaggedPenalty bool) Demerits {
+	// Section 859 of the Tex source
+	demerits := square(Demerits(criteria.LinePenalty) + Demerits(calculateBadness(adjustmentRatio)))
+	if penaltyCost > 0 {
+		demerits += square(Demerits(penaltyCost))
 	} else if !penaltyCost.IsNegativeInfinite() {
-		intDemerits = square(1+badness) - square(int64(penaltyCost))
-	} else {
-		intDemerits = square(1 + badness)
+		demerits -= square(Demerits(penaltyCost))
 	}
 	if isFlaggedPenalty && isPrevFlaggedPenalty {
-		intDemerits = intDemerits + int64(criteria.ConsecutiveFlaggedPenaltyCost)
+		demerits += Demerits(criteria.ConsecutiveFlaggedPenaltyCost)
 	}
 	if fitnessClass-prevFitnessClass > 1 || fitnessClass-prevFitnessClass < -1 {
-		intDemerits = intDemerits + int64(criteria.MismatchingFitnessClassCost)
+		demerits += Demerits(criteria.MismatchingFitnessClassCost)
 	}
-	return Demerits(intDemerits)
+	return demerits
 }
 
-func square(x int64) int64 {
+func square(x Demerits) Demerits {
 	return x * x
 }
 

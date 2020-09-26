@@ -89,7 +89,7 @@ func TestDeterministicFinalNodeSelection(t *testing.T) {
 		primitives.NewGlue(0, 0, primitives.InfiniteStretchability),
 		primitives.NewPenalty(0, primitives.NegInfBreakpointPenalty, false),
 	}
-	criteria := criteria2.TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
+	criteria := criteria2.TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{Num: 10, Den: 1}, LinePenalty: 1}
 	result := CalculateBreakpoints(primitives.NewItemList(items), lines.NewVariableLineLengths([]d.Distance{90, 30}, 0), criteria, false, true)
 	verifyNoError(t, result)
 	verifyBreakpoints(t, []int{3, 6}, result)

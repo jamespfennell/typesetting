@@ -10,6 +10,11 @@ import "fmt"
 // The number of fractional bits is chosen to exactly match the standard implementation of Tex.
 type Distance int64
 
+func (distance Distance) String() string {
+	return fmt.Sprintf("%dspt", distance)
+	// return fmt.Sprintf("%.2fpt", float64(distance) / (2 << 17))
+}
+
 type Ratio struct {
 	Num Distance
 	Den Distance
