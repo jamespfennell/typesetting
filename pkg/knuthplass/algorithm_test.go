@@ -36,7 +36,7 @@ func TestVariableLineLengthsBreakpoints(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{10, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
 	result := CalculateBreakpoints(NewItemList(items), lineLengths, criteria, false, true)
 	verifyNoError(t, result)
 	verifyBreakpoints(t, []int{3, 7, 11, 15, 18}, result)
@@ -52,7 +52,7 @@ func TestBestIllegalCase(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{10, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio:d.Ratio{10, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, true, true)
 	verifyError(t, []int{3}, result)
 	verifyBreakpoints(t, []int{3, 6}, result)
@@ -68,7 +68,7 @@ func TestBoxTooBig(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{10, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, false, true)
 	verifyError(t, []int{3}, result)
 }
@@ -86,7 +86,7 @@ func TestDeterministicFinalNodeSelection(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{10, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewVariableLineLengths([]d.Distance{90, 30}, 0), criteria, false, true)
 	verifyNoError(t, result)
 	verifyBreakpoints(t, []int{3, 6}, result)
@@ -102,7 +102,7 @@ func TestAdjustmentRatioTooBig(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{1, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{1, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(230), criteria, false, true)
 	verifyError(t, []int{5}, result)
 }
@@ -132,7 +132,7 @@ func TestForbiddenBreaks(t *testing.T) {
 				NewGlue(0, 0, 100000),
 				NewPenalty(0, NegInfBreakpointPenalty, false),
 			}
-			criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{10, 1}}
+			criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
 			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(140), criteria, false, true)
 			verifyNoError(t, result)
 			verifyBreakpoints(t, params.expectedBreakpoints, result)
@@ -158,7 +158,7 @@ func TestForcedBreaks(t *testing.T) {
 		NewGlue(0, 0, 100000),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{200000, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{200000, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, false, true)
 	expectedBreakpoints := []int{3, 9, 12}
 	verifyNoError(t, result)
@@ -179,7 +179,7 @@ func TestBasicCase(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	expectedBreakpoints := []int{5, 8}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: adjustmentRatio{200000,1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{200000,1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, false, true)
 	verifyNoError(t, result)
 	verifyBreakpoints(t, expectedBreakpoints, result)
@@ -218,7 +218,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 	for _, params := range paramsList {
 		t.Run(params.name, func(t *testing.T) {
 			criteria := TexOptimalityCriteria{
-				MaxAdjustmentRatio:            adjustmentRatio{10, 1},
+				MaxAdjustmentRatio:            d.Ratio{10, 1},
 				ConsecutiveFlaggedPenaltyCost: params.consecutiveFlaggedPenaltyCost,
 			}
 			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(340), criteria, false, true)
@@ -262,7 +262,7 @@ func TestDifferentClasses(t *testing.T) {
 	for _, params := range paramsList {
 		t.Run(params.name, func(t *testing.T) {
 			criteria := TexOptimalityCriteria{
-				MaxAdjustmentRatio:          adjustmentRatio{10, 1},
+				MaxAdjustmentRatio:          d.Ratio{10, 1},
 				MismatchingFitnessClassCost: params.mismatchingFitnessClassCost,
 			}
 			result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(200), criteria, false, true)

@@ -1,6 +1,7 @@
 package knuthplass
 
 import (
+	d "github.com/jamespfennell/typesetting/pkg/distance"
 	"math"
 )
 
@@ -14,29 +15,29 @@ type FitnessClass int8
 
 // OptimalityCriteria contains all of the data to optimize
 type OptimalityCriteria interface {
-	GetMaxAdjustmentRatio() adjustmentRatio
+	GetMaxAdjustmentRatio() d.Ratio
 	GetLooseness() int
 	CalculateDemerits(
-		adjustmentRatio adjustmentRatio,
+		adjustmentRatio d.Ratio,
 		fitnessClass FitnessClass,
 		prevFitnessClass FitnessClass,
 		penaltyCost int64,
 		isFlaggedPenalty bool,
 		isPrevFlaggedPenalty bool) float64
-	CalculateFitnessClass(adjustmentRatio adjustmentRatio) FitnessClass
+	CalculateFitnessClass(adjustmentRatio d.Ratio) FitnessClass
 }
 
 // TexOptimalityCriteria is the optimality criteria developed for Tex and described
 // in the Knuth-Plass paper
 type TexOptimalityCriteria struct {
-	MaxAdjustmentRatio            adjustmentRatio // ro in the paper
+	MaxAdjustmentRatio            d.Ratio // ro in the paper
 	Looseness                     int     // q in the paper
 	ConsecutiveFlaggedPenaltyCost float64 // alpha in the paper
 	MismatchingFitnessClassCost   float64 // gamma in the paper
 }
 
 // GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
-func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() adjustmentRatio {
+func (criteria TexOptimalityCriteria) GetMaxAdjustmentRatio() d.Ratio {
 	return criteria.MaxAdjustmentRatio
 }
 
@@ -47,7 +48,7 @@ func (criteria TexOptimalityCriteria) GetLooseness() int {
 
 // CalculateDemerits calculates the demerits of the line following the formulas in the Knuth-Plass paper.
 func (criteria TexOptimalityCriteria) CalculateDemerits(
-	adjustmentRatio adjustmentRatio,
+	adjustmentRatio d.Ratio,
 	fitnessClass FitnessClass,
 	prevFitnessClass FitnessClass,
 	penaltyCost int64,
@@ -55,7 +56,7 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	isPrevFlaggedPenalty bool) (demerits float64) {
 	// Section 858 of the Tex source
 	// TODO: don't cast to float
-	badness := float64(calculateBadness(int64(adjustmentRatio.num), int64(adjustmentRatio.den)))
+	badness := float64(calculateBadness(adjustmentRatio))
 	if penaltyCost >= 0 {
 		demerits = math.Pow(1+badness+float64(penaltyCost), 2)
 	} else if penaltyCost > NegInfBreakpointPenalty {
@@ -77,24 +78,24 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 // The badness is essentially what the Knuth-Plass algorithm is trying to minimize, and hence to get identical results
 // to Tex "all implementations of TeX should use precisely this method" as Knuth says in section 108. Through some
 // reverse engineering we are able to provide explanations of the magic constants as code comments.
-func calculateBadness(numerator int64, denominator int64) int64 {
+func calculateBadness(ratio d.Ratio) int64 {
 	// quotient is an approximation to (alpha * num / den) where alpha^3 ~= 100 * 2^18
 	var quotient int64
 	switch true {
-	case numerator == 0:
+	case ratio.Num == 0:
 		return 0
-	case denominator <= 0:
+	case ratio.Den <= 0:
 		return 10000
-	case numerator <= 7230584:
+	case ratio.Num <= 7230584:
 		// 7230584 is the smallest integer less than 2^31/297. Knuth presumably chooses it so that that the following
 		// multiplication doesn't overflow on a 32 bit machine.
-		quotient = (numerator * 297) / denominator
-	case denominator >= 1663497:
+		quotient = int64((ratio.Num * 297) / ratio.Den)
+	case ratio.Den >= 1663497:
 		// 1663497 is the smallest integer such that quotient is less than or equal to 1290, and hence
 		// that the final result (quotient^3/2^18 rounded) is less than or equal to 8192. Any number bigger than
 		// 8192=2^13 yields an infinite badness of 10000 and no computation is needed - we just return the infinite
 		// badness in the following case.
-		quotient = numerator / (denominator / 297)
+		quotient = int64(ratio.Num / (ratio.Den / 297))
 	default:
 		// In this case num/den > 7230584/1663497 > 4.346, in which case 100(num/den)^3 > 8200 > 8192, and so the
 		// badness is infinite. Knuth's code returns this value, but the way it's laid out is confusing because
@@ -109,15 +110,15 @@ func calculateBadness(numerator int64, denominator int64) int64 {
 }
 
 // CalculateFitnessClass calculates the fitness class of the line following the formulas in the Knuth-Plass paper.
-func (TexOptimalityCriteria) CalculateFitnessClass(ratio adjustmentRatio) FitnessClass {
+func (TexOptimalityCriteria) CalculateFitnessClass(ratio d.Ratio) FitnessClass {
 	// Binary search essentially...
-	if ratio.lessThanEqual(adjustmentRatio{1,2}) {
-		if ratio.lessThanEqual(adjustmentRatio{-1, 2}) {
+	if ratio.LessThanEqual(d.Ratio{1,2}) {
+		if ratio.LessThanEqual(d.Ratio{-1, 2}) {
 				return -1
 		}
 		return 0
 	}
-	if ratio.lessThanEqual(adjustmentRatio{1, 1})  {
+	if ratio.LessThanEqual(d.Ratio{Num: 1, Den: 1})  {
 		return 1
 	}
 	return 2

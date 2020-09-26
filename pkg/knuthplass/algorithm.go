@@ -68,7 +68,6 @@ func CalculateBreakpoints(
 	} else {
 		logger = nil
 	}
-	minusOne := adjustmentRatio{-1, 1}
 
 	for itemIndex := 0; itemIndex < itemList.Length(); itemIndex++ {
 		item := itemList.Get(itemIndex)
@@ -80,7 +79,7 @@ func CalculateBreakpoints(
 			// We refer to the target node using a nodeID object. This is because the target node is not in the
 			// active set, and hence there is no node object corresponding it.
 			targetNode      nodeID
-			adjustmentRatio adjustmentRatio
+			adjustmentRatio d.Ratio
 		}
 		var edges []edge
 		var fallbackEdges []edge
@@ -107,16 +106,16 @@ func CalculateBreakpoints(
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			if logger != nil {
-				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio.Float())
+				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio.Float64())
 			}
-			if adjustmentRatio.lessThan(minusOne) || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
+			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
 			} else {
 				allActiveNodesToBeDeactivated = false
 			}
 			thisEdge := edge{sourceNode: sourceNode, targetNode: targetNode, adjustmentRatio: adjustmentRatio}
 			switch true {
-			case minusOne.lessThanEqual(adjustmentRatio) && adjustmentRatio.lessThanEqual(criteria.GetMaxAdjustmentRatio()):
+			case d.MinusOneRatio.LessThanEqual(adjustmentRatio) && adjustmentRatio.LessThanEqual(criteria.GetMaxAdjustmentRatio()):
 				edges = append(edges, thisEdge)
 			case len(edges) == 0 && allActiveNodesToBeDeactivated:
 				fallbackEdges = append(fallbackEdges, thisEdge)
@@ -224,38 +223,22 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 	return node1
 }
 
-type adjustmentRatio struct {
-	num d.Distance
-	den d.Distance
-}
-
-func (ratio adjustmentRatio) lessThan(rhs adjustmentRatio) bool {
-	return ratio.num * rhs.den < rhs.num * ratio.den
-}
-
-func (ratio adjustmentRatio) lessThanEqual(rhs adjustmentRatio) bool {
-	return ratio.num * rhs.den <= rhs.num * ratio.den
-}
-
-func (ratio adjustmentRatio) Float() float64 {
-	return float64(ratio.num) / float64(ratio.den)
-}
 func calculateAdjustmentRatio(
 	lineWidth d.Distance,
 	lineShrinkability d.Distance,
 	lineStretchability d.Distance,
 	targetLineWidth d.Distance,
-) adjustmentRatio {
+) d.Ratio {
 	switch {
 	case lineWidth > targetLineWidth:
-		return adjustmentRatio{-lineWidth+targetLineWidth, lineShrinkability}
+		return d.Ratio{Num: -lineWidth+targetLineWidth, Den: lineShrinkability}
 	case lineWidth < targetLineWidth:
 		if lineStretchability >= InfiniteStretchability {
-			return adjustmentRatio{0, 1}
+			return d.ZeroRatio
 		}
-		return adjustmentRatio{-lineWidth+targetLineWidth, lineStretchability}
+		return d.Ratio{Num: -lineWidth+targetLineWidth, Den: lineStretchability}
 	default:
-		return adjustmentRatio{0, 1}
+		return d.ZeroRatio
 	}
 }
 

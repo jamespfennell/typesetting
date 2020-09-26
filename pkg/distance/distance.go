@@ -8,11 +8,27 @@ package distance
 // The number of fractional bits is chosen to exactly match the standard implementation of Tex.
 type Distance int64
 
-// TODO: use this for adjustment ratios
 type Ratio struct {
 	Num Distance
 	Den Distance
 }
+
+var PlusOneRatio = Ratio{Num: 1, Den: 1}
+var ZeroRatio = Ratio{Num: 0, Den: 1}
+var MinusOneRatio = Ratio{Num: -1, Den: 1}
+
+func (ratio Ratio) LessThan(rhs Ratio) bool {
+	return ratio.Num * rhs.Den < rhs.Num * ratio.Den
+}
+
+func (ratio Ratio) LessThanEqual(rhs Ratio) bool {
+	return ratio.Num * rhs.Den <= rhs.Num * ratio.Den
+}
+
+func (ratio Ratio) Float64() float64 {
+	return float64(ratio.Num) / float64(ratio.Num)
+}
+
 type Fraction struct {
 	Numerator int64
 	Denominator int64
