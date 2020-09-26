@@ -52,7 +52,7 @@ func TestBestIllegalCase(t *testing.T) {
 		NewGlue(0, 0, InfiniteStretchability),
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio:d.Ratio{10, 1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{10, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(150), criteria, true, true)
 	verifyError(t, []int{3}, result)
 	verifyBreakpoints(t, []int{3, 6}, result)
@@ -179,7 +179,7 @@ func TestBasicCase(t *testing.T) {
 		NewPenalty(0, NegInfBreakpointPenalty, false),
 	}
 	expectedBreakpoints := []int{5, 8}
-	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{200000,1}}
+	criteria := TexOptimalityCriteria{MaxAdjustmentRatio: d.Ratio{200000, 1}}
 	result := CalculateBreakpoints(NewItemList(items), NewConstantLineLengths(270), criteria, false, true)
 	verifyNoError(t, result)
 	verifyBreakpoints(t, expectedBreakpoints, result)
@@ -210,7 +210,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 	paramsList := []struct {
 		name                          string
 		expectedBreakpoints           []int
-		consecutiveFlaggedPenaltyCost float64
+		consecutiveFlaggedPenaltyCost int64
 	}{
 		{"No consecutive flagged penalty cost", []int{13, 28, 36}, 0},
 		{"Large consecutive flagged penalty cost", []int{11, 26, 36}, 20000},
@@ -254,7 +254,7 @@ func TestDifferentClasses(t *testing.T) {
 	paramsList := []struct {
 		name                        string
 		expectedBreakpoints         []int
-		mismatchingFitnessClassCost float64
+		mismatchingFitnessClassCost int64
 	}{
 		{"No mismatching fitness class cost", []int{3, 12}, 0},
 		{"Large mismatching fitness class cost", []int{3, 9, 12}, 20000},

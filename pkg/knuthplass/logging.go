@@ -26,20 +26,23 @@ func NewBreakpointLogger() *BreakpointLogger {
 	}
 }
 
+type stringable interface {
+	String() string
+}
 // NodeNodeTable is a data structure for holding tabular data where both the row and column indices are nodes.
 type NodeNodeTable struct {
 	name        string
 	nodeTracker *nodeTracker
-	data        map[nodeID]map[nodeID]float64
+	data        map[nodeID]map[nodeID]stringable
 }
 
 // AddCell adds a new data point to the NodeNodeTable (or replaces the data point, if it already exists).
-func (table *NodeNodeTable) AddCell(rowKey *node, colKey nodeID, value float64) {
+func (table *NodeNodeTable) AddCell(rowKey *node, colKey nodeID, value stringable) {
 	table.nodeTracker.initNode(rowKey.id())
 	table.nodeTracker.initNode(colKey)
 	_, rowExists := table.data[rowKey.id()]
 	if !rowExists {
-		table.data[rowKey.id()] = make(map[nodeID]float64)
+		table.data[rowKey.id()] = make(map[nodeID]stringable)
 	}
 	table.data[rowKey.id()][colKey] = value
 }
@@ -65,7 +68,7 @@ func (table *NodeNodeTable) String() string {
 			if !hasValue {
 				continue
 			}
-			stringValue := fmt.Sprintf("%6.2f", value)
+			stringValue := fmt.Sprintf("%9s", value)
 			if len(stringValue) > colKeyToColWidth[colKey] {
 				colKeyToColWidth[colKey] = len(stringValue)
 			}
@@ -95,7 +98,7 @@ func (table *NodeNodeTable) String() string {
 			}
 			value, hasValue := table.data[rowKey][colKey]
 			if hasValue {
-				stringValue := fmt.Sprintf("%6.2f", value)
+				stringValue := fmt.Sprintf("%9s", value)
 				fprintf(&lineB, " %*s |", colKeyToColWidth[colKey], stringValue)
 				rowHasValues = true
 			} else {
@@ -118,7 +121,7 @@ func newNodeNodeTable(name string, tracker *nodeTracker) *NodeNodeTable {
 	return &NodeNodeTable{
 		name:        name,
 		nodeTracker: tracker,
-		data:        make(map[nodeID]map[nodeID]float64),
+		data:        make(map[nodeID]map[nodeID]stringable),
 	}
 }
 

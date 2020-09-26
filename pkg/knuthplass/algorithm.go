@@ -106,7 +106,7 @@ func CalculateBreakpoints(
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			if logger != nil {
-				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio.Float64())
+				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio)
 			}
 			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
@@ -193,7 +193,7 @@ func buildBreakpoints(node *node) []int {
 
 // updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided
 // candidatePrevNode if that node results in the targetNode having fewer demerits.
-func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits float64) {
+func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits Demerits) {
 	totalDemerits := candidatePrevNode.demerits + edgeDemerits
 	switch true {
 	case targetNode.prevNode == nil || totalDemerits < targetNode.demerits:
@@ -231,12 +231,12 @@ func calculateAdjustmentRatio(
 ) d.Ratio {
 	switch {
 	case lineWidth > targetLineWidth:
-		return d.Ratio{Num: -lineWidth+targetLineWidth, Den: lineShrinkability}
+		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineShrinkability}
 	case lineWidth < targetLineWidth:
 		if lineStretchability >= InfiniteStretchability {
 			return d.ZeroRatio
 		}
-		return d.Ratio{Num: -lineWidth+targetLineWidth, Den: lineStretchability}
+		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineStretchability}
 	default:
 		return d.ZeroRatio
 	}
@@ -260,7 +260,7 @@ type node struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass FitnessClass
-	demerits     float64
+	demerits     Demerits
 	prevNode     *node
 }
 
