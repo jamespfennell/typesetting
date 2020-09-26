@@ -19,7 +19,8 @@ import (
 	d "github.com/jamespfennell/typesetting/pkg/distance"
 	"github.com/jamespfennell/typesetting/pkg/knuthplass/criteria"
 	"github.com/jamespfennell/typesetting/pkg/knuthplass/lines"
-	p "github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/logging"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
 )
 
 // CalculateBreakpointsResult stores the result of the CalculateBreakpoints Knuth-Plass algorithm.
@@ -35,7 +36,7 @@ type CalculateBreakpointsResult struct {
 
 	// Logger contains a BreakpointLogger with results of the internal calculations performed during the function.
 	// If the enableLogging parameter to CalculateBreakpoints was false, the logger will be nil.
-	Logger *BreakpointLogger
+	Logger *logging.BreakpointLogger
 }
 
 // CalculateBreakpoints is the package's implementation of the Knuth-Plass algorithm.
@@ -54,7 +55,7 @@ type CalculateBreakpointsResult struct {
 // Consult the documentation on the output type CalculateBreakpointsResult for more information on this function
 // and its parameters.
 func CalculateBreakpoints(
-	itemList *p.ItemList,
+	itemList *primitives.ItemList,
 	lineLengths lines.LineLengths,
 	criteria criteria.OptimalityCriteria,
 	fallbackToIllegalSolution bool,
@@ -65,9 +66,9 @@ func CalculateBreakpoints(
 	firstNode.demerits = 0
 	var problematicItemIndices []int
 
-	var logger *BreakpointLogger
+	var logger *logging.BreakpointLogger
 	if enableLogging {
-		logger = NewBreakpointLogger()
+		logger = logging.NewBreakpointLogger()
 	} else {
 		logger = nil
 	}
@@ -109,9 +110,9 @@ func CalculateBreakpoints(
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			if logger != nil {
-				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio)
+				logger.AdjustmentRatiosTable.AddCell(sourceNode.id(), targetNode, adjustmentRatio)
 			}
-			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= p.NegInfBreakpointPenalty {
+			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= primitives.NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
 			} else {
 				allActiveNodesToBeDeactivated = false
@@ -145,9 +146,9 @@ func CalculateBreakpoints(
 				previousItemIsFlaggedBreakpoint,
 			)
 			if logger != nil {
-				logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
+				logger.LineDemeritsTable.AddCell(edge.sourceNode.id(), edge.targetNode, lineDemerits)
 				logger.TotalDemeritsTable.AddCell(
-					edge.sourceNode,
+					edge.sourceNode.id(),
 					edge.targetNode,
 					lineDemerits+edge.sourceNode.demerits,
 				)
@@ -236,7 +237,7 @@ func calculateAdjustmentRatio(
 	case lineWidth > targetLineWidth:
 		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineShrinkability}
 	case lineWidth < targetLineWidth:
-		if lineStretchability >= p.InfiniteStretchability {
+		if lineStretchability >= primitives.InfiniteStretchability {
 			return d.ZeroRatio
 		}
 		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineStretchability}
@@ -271,6 +272,10 @@ type nodeID struct {
 	itemIndex    int
 	lineIndex    int
 	fitnessClass criteria.FitnessClass
+}
+
+func (node nodeID) Key() string {
+	return fmt.Sprintf("%d/%d/%d", node.itemIndex, node.lineIndex, node.fitnessClass)
 }
 
 func (node *node) id() nodeID {
