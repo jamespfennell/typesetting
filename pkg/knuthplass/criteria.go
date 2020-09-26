@@ -21,6 +21,14 @@ func (demerits Demerits) String() string {
 
 type PenaltyCost int64
 
+func (cost PenaltyCost) IsPositiveInfinite() bool {
+	return cost >= PosInfBreakpointPenalty
+}
+
+func (cost PenaltyCost) IsNegativeInfinite() bool {
+	return cost <= NegInfBreakpointPenalty
+}
+
 // OptimalityCriteria contains all of the data to optimize
 type OptimalityCriteria interface {
 	GetMaxAdjustmentRatio() d.Ratio
@@ -29,7 +37,7 @@ type OptimalityCriteria interface {
 		adjustmentRatio d.Ratio,
 		fitnessClass FitnessClass,
 		prevFitnessClass FitnessClass,
-		penaltyCost int64,
+		penaltyCost PenaltyCost,
 		isFlaggedPenalty bool,
 		isPrevFlaggedPenalty bool) Demerits
 	CalculateFitnessClass(adjustmentRatio d.Ratio) FitnessClass
@@ -40,8 +48,8 @@ type OptimalityCriteria interface {
 type TexOptimalityCriteria struct {
 	MaxAdjustmentRatio            d.Ratio // ro in the paper
 	Looseness                     int     // q in the paper
-	ConsecutiveFlaggedPenaltyCost int64 // alpha in the paper
-	MismatchingFitnessClassCost   int64 // gamma in the paper
+	ConsecutiveFlaggedPenaltyCost PenaltyCost // alpha in the paper
+	MismatchingFitnessClassCost   PenaltyCost // gamma in the paper
 }
 
 // GetMaxAdjustmentRatio returns the largest legal adjustment ratio.
@@ -59,25 +67,24 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	adjustmentRatio d.Ratio,
 	fitnessClass FitnessClass,
 	prevFitnessClass FitnessClass,
-	penaltyCost int64,
+	penaltyCost PenaltyCost,
 	isFlaggedPenalty bool,
 	isPrevFlaggedPenalty bool) (demerits Demerits) {
 	// Section 858 of the Tex source
-	// TODO: don't cast to float
 	badness := calculateBadness(adjustmentRatio)
 	intDemerits := int64(0)
 	if penaltyCost >= 0 {
-		intDemerits = square(1+badness+penaltyCost)
-	} else if penaltyCost > NegInfBreakpointPenalty {
-		intDemerits = square(1+badness) - square(penaltyCost)
+		intDemerits = square(1+badness+int64(penaltyCost))
+	} else if !penaltyCost.IsNegativeInfinite() {
+		intDemerits = square(1+badness) - square(int64(penaltyCost))
 	} else {
 		intDemerits = square(1+badness)
 	}
 	if isFlaggedPenalty && isPrevFlaggedPenalty {
-		intDemerits = intDemerits + criteria.ConsecutiveFlaggedPenaltyCost
+		intDemerits = intDemerits + int64(criteria.ConsecutiveFlaggedPenaltyCost)
 	}
 	if fitnessClass-prevFitnessClass > 1 || fitnessClass-prevFitnessClass < -1 {
-		intDemerits = intDemerits + criteria.MismatchingFitnessClassCost
+		intDemerits = intDemerits + int64(criteria.MismatchingFitnessClassCost)
 	}
 	return Demerits(intDemerits)
 }

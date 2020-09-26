@@ -26,7 +26,7 @@ type Item interface {
 	Stretchability() d.Distance
 
 	// BreakpointPenalty returns the additional penalty assessed if a line breaks at this item.
-	BreakpointPenalty() int64
+	BreakpointPenalty() PenaltyCost
 
 	// IsFlaggedBreakpoint returns whether a breakpoint at this item is isFlagged.
 	// Two consecutive isFlagged Breakpoints are assessed an additional penalty.
@@ -67,7 +67,7 @@ func (*box) Stretchability() d.Distance {
 	return 0
 }
 
-func (*box) BreakpointPenalty() int64 {
+func (*box) BreakpointPenalty() PenaltyCost {
 	return 0
 }
 
@@ -110,7 +110,7 @@ func (glue *glue) Stretchability() d.Distance {
 	return glue.stretchability
 }
 
-func (*glue) BreakpointPenalty() int64 {
+func (*glue) BreakpointPenalty() PenaltyCost {
 	return 0
 }
 
@@ -131,11 +131,11 @@ func (*glue) IsBox() bool {
 
 // PosInfBreakpointPenalty represents an infinitely positive penalty which makes it forbidden for the associated item
 // to be a breakpoint. Any breakpoint penalty larger than this is also considered positive infinite.
-const PosInfBreakpointPenalty int64 = 10000
+const PosInfBreakpointPenalty PenaltyCost = 10000
 
 // NegInfBreakpointPenalty represents an infinitely negative penalty which makes it mandatory for the associated item
 // to be a breakpoint. Any breakpoint penalty more negative than this is also considered negative infinite.
-const NegInfBreakpointPenalty int64 = -10000
+const NegInfBreakpointPenalty PenaltyCost = -10000
 
 // InfiniteStretchability is a stretchability constant such that the item can be stretched an arbitrary amount with
 // no breakpoint penalty (or at least, no contribution to the adjustment ratio).
@@ -143,18 +143,13 @@ const NegInfBreakpointPenalty int64 = -10000
 const InfiniteStretchability d.Distance = 100000
 
 // NewPenalty creates and returns a new penalty item.
-func NewPenalty(width d.Distance, breakpointPenalty int64, isFlagged bool) Item {
-	if breakpointPenalty > PosInfBreakpointPenalty {
-		breakpointPenalty = PosInfBreakpointPenalty
-	} else if breakpointPenalty < NegInfBreakpointPenalty {
-		breakpointPenalty = NegInfBreakpointPenalty
-	}
+func NewPenalty(width d.Distance, breakpointPenalty PenaltyCost, isFlagged bool) Item {
 	return &penalty{width: width, breakpointPenalty: breakpointPenalty, isFlagged: isFlagged}
 }
 
 type penalty struct {
 	width             d.Distance
-	breakpointPenalty int64
+	breakpointPenalty PenaltyCost
 	isFlagged         bool
 }
 
@@ -174,7 +169,7 @@ func (*penalty) Stretchability() d.Distance {
 	return 0
 }
 
-func (penalty *penalty) BreakpointPenalty() int64 {
+func (penalty *penalty) BreakpointPenalty() PenaltyCost {
 	return penalty.breakpointPenalty
 }
 
@@ -183,7 +178,7 @@ func (penalty *penalty) IsFlaggedBreakpoint() bool {
 }
 
 func (penalty *penalty) IsValidBreakpoint(Item) bool {
-	return penalty.BreakpointPenalty() < PosInfBreakpointPenalty
+	return !penalty.BreakpointPenalty().IsPositiveInfinite()
 }
 
 func (*penalty) IsBox() bool {

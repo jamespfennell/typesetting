@@ -15,7 +15,6 @@ type Ratio struct {
 	Den Distance
 }
 
-var PlusOneRatio = Ratio{Num: 1, Den: 1}
 var ZeroRatio = Ratio{Num: 0, Den: 1}
 var MinusOneRatio = Ratio{Num: -1, Den: 1}
 
@@ -36,7 +35,7 @@ func (ratio Ratio) String() string {
 			return "+Inf"
 		}
 	}
-	return fmt.Sprintf("%0.2f", float64(ratio.Num) / float64(ratio.Den))
+	return fmt.Sprintf("%.2f", float64(ratio.Num) / float64(ratio.Den))
 }
 
 type Fraction struct {

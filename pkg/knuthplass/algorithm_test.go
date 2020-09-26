@@ -110,7 +110,7 @@ func TestAdjustmentRatioTooBig(t *testing.T) {
 func TestForbiddenBreaks(t *testing.T) {
 	paramsList := []struct {
 		name                string
-		penalty             int64
+		penalty             PenaltyCost
 		expectedBreakpoints []int
 	}{
 		{"No penalty", 0, []int{5, 9}},
@@ -210,7 +210,7 @@ func TestConsecutiveFlaggedBreakpoint(t *testing.T) {
 	paramsList := []struct {
 		name                          string
 		expectedBreakpoints           []int
-		consecutiveFlaggedPenaltyCost int64
+		consecutiveFlaggedPenaltyCost PenaltyCost
 	}{
 		{"No consecutive flagged penalty cost", []int{13, 28, 36}, 0},
 		{"Large consecutive flagged penalty cost", []int{11, 26, 36}, 20000},
@@ -254,7 +254,7 @@ func TestDifferentClasses(t *testing.T) {
 	paramsList := []struct {
 		name                        string
 		expectedBreakpoints         []int
-		mismatchingFitnessClassCost int64
+		mismatchingFitnessClassCost PenaltyCost
 	}{
 		{"No mismatching fitness class cost", []int{3, 12}, 0},
 		{"Large mismatching fitness class cost", []int{3, 9, 12}, 20000},
