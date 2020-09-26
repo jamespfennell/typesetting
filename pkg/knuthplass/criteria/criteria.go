@@ -65,11 +65,11 @@ func (criteria TexOptimalityCriteria) CalculateDemerits(
 	badness := calculateBadness(adjustmentRatio)
 	intDemerits := int64(0)
 	if penaltyCost >= 0 {
-		intDemerits = square(1+badness+int64(penaltyCost))
+		intDemerits = square(1 + badness + int64(penaltyCost))
 	} else if !penaltyCost.IsNegativeInfinite() {
 		intDemerits = square(1+badness) - square(int64(penaltyCost))
 	} else {
-		intDemerits = square(1+badness)
+		intDemerits = square(1 + badness)
 	}
 	if isFlaggedPenalty && isPrevFlaggedPenalty {
 		intDemerits = intDemerits + int64(criteria.ConsecutiveFlaggedPenaltyCost)
@@ -92,21 +92,25 @@ func square(x int64) int64 {
 func calculateBadness(ratio d.Ratio) int64 {
 	// quotient is an approximation to (alpha * num / den) where alpha^3 ~= 100 * 2^18
 	var quotient int64
+	num := ratio.Num
+	if ratio.Num < 0 {
+		num *= -1
+	}
 	switch true {
-	case ratio.Num == 0:
+	case num == 0:
 		return 0
 	case ratio.Den <= 0:
 		return 10000
-	case ratio.Num <= 7230584:
+	case num <= 7230584:
 		// 7230584 is the smallest integer less than 2^31/297. Knuth presumably chooses it so that that the following
 		// multiplication doesn't overflow on a 32 bit machine.
-		quotient = int64((ratio.Num * 297) / ratio.Den)
+		quotient = int64((num * 297) / ratio.Den)
 	case ratio.Den >= 1663497:
 		// 1663497 is the smallest integer such that quotient is less than or equal to 1290, and hence
 		// that the final result (quotient^3/2^18 rounded) is less than or equal to 8192. Any number bigger than
 		// 8192=2^13 yields an infinite badness of 10000 and no computation is needed - we just return the infinite
 		// badness in the following case.
-		quotient = int64(ratio.Num / (ratio.Den / 297))
+		quotient = int64(num / (ratio.Den / 297))
 	default:
 		// In this case num/den > 7230584/1663497 > 4.346, in which case 100(num/den)^3 > 8200 > 8192, and so the
 		// badness is infinite. Knuth's code returns this value, but the way it's laid out is confusing because
