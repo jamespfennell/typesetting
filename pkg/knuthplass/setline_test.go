@@ -6,9 +6,10 @@ import (
 	"testing"
 )
 
-// Infinite stretch with negative stretch box distraction
 // Infinite stretch with regular stretch
+// Infinite stretch with negative stretch box distraction
 // 2 infinite stretches , sp tie break
+// Infinite stretchability at the start ignored
 
 func TestSetLine_ErrorCases(t *testing.T) {
 	paramsList := []struct {
@@ -245,6 +246,94 @@ func TestSetLine_NoErrorCases(t *testing.T) {
 				{true, 20},
 				{true, 20},
 				{true, 20},
+				{true, 20},
+			},
+		},
+		{
+			"Nearly Infinite stretch glue",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability - 1),
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability - 1),
+				primitives.NewBox(20),
+			},
+			120,
+			[]FixedItem{
+				{true, 20},
+				{true, 30},
+				{true, 20},
+				{true, 30},
+				{true, 20},
+			},
+		},
+		{
+			"Infinite stretch glue",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability),
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability - 1),
+				primitives.NewBox(20),
+			},
+			120,
+			[]FixedItem{
+				{true, 20},
+				{true, 40},
+				{true, 20},
+				{true, 20},
+				{true, 20},
+			},
+		},
+		{
+			"Infinite stretch glue with negative stretch",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability),
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, -10000),
+				primitives.NewBox(20),
+			},
+			120,
+			[]FixedItem{
+				{true, 20},
+				{true, 40},
+				{true, 20},
+				{true, 20},
+				{true, 20},
+			},
+		},
+		{
+			"Two infinite stretch glues",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability),
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability),
+				primitives.NewBox(20),
+			},
+			121,
+			[]FixedItem{
+				{true, 20},
+				{true, 31},
+				{true, 20},
+				{true, 30},
+				{true, 20},
+			},
+		},
+		{
+			"Infinite stretchability at the start ignored",
+			[]primitives.Item{
+				primitives.NewGlue(20, 10, primitives.InfiniteStretchability),
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, 10),
+				primitives.NewBox(20),
+			},
+			70,
+			[]FixedItem{
+				{false, 0},
+				{true, 20},
+				{true, 30},
 				{true, 20},
 			},
 		},

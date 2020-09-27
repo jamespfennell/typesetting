@@ -226,6 +226,7 @@ type ItemList struct {
 	aggregateWidth          []d.Distance
 	aggregateShrinkability  []d.Distance
 	aggregateStretchability []d.Distance
+	numInfStretchableItems  []int
 	positionToNextBoxOffset []int
 	items                   []Item
 }
@@ -254,6 +255,7 @@ func (itemList *ItemList) Slice(a int, b int) *ItemList {
 		aggregateWidth:          itemList.aggregateWidth[a : b+1],
 		aggregateShrinkability:  itemList.aggregateShrinkability[a : b+1],
 		aggregateStretchability: itemList.aggregateStretchability[a : b+1],
+		numInfStretchableItems:  itemList.numInfStretchableItems[a : b+1],
 		positionToNextBoxOffset: itemList.positionToNextBoxOffset[a:b],
 		items:                   itemList.items[a:b],
 	}
@@ -265,12 +267,14 @@ func NewItemList(items []Item) *ItemList {
 		aggregateWidth:          make([]d.Distance, len(items)+1),
 		aggregateShrinkability:  make([]d.Distance, len(items)+1),
 		aggregateStretchability: make([]d.Distance, len(items)+1),
+		numInfStretchableItems: make([]int, len(items)+1),
 		positionToNextBoxOffset: make([]int, len(items)),
 		items:                   items,
 	}
 	lineData.aggregateWidth[0] = 0
 	lineData.aggregateShrinkability[0] = 0
 	lineData.aggregateStretchability[0] = 0
+	lineData.numInfStretchableItems[0] = 0
 	for position, item := range items {
 		lineData.aggregateWidth[position+1] =
 			lineData.aggregateWidth[position] +
@@ -281,6 +285,10 @@ func NewItemList(items []Item) *ItemList {
 		lineData.aggregateStretchability[position+1] =
 			lineData.aggregateStretchability[position] +
 				item.Stretchability()
+		lineData.numInfStretchableItems[position+1] = lineData.numInfStretchableItems[position]
+		if item.Stretchability() >= InfiniteStretchability {
+			lineData.numInfStretchableItems[position+1] += 1
+		}
 	}
 	itemIndex := 0
 	boxIndex := 0
@@ -348,4 +356,13 @@ func (itemList *ItemList) Stretchability() d.Distance {
 		return rawStretchability
 	}
 	return InfiniteStretchability
+}
+
+// NumInfStretchableItems returns the number of items in the ItemList that are infinitely stretchable.
+func (itemList *ItemList) NumInfStretchableItems() int {
+	firstBoxIndex, err := itemList.FirstBoxIndex()
+	if err != nil {
+		return 0
+	}
+	return itemList.numInfStretchableItems[len(itemList.items)-1] - itemList.numInfStretchableItems[firstBoxIndex]
 }

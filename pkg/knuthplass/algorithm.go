@@ -237,6 +237,7 @@ func calculateAdjustmentRatio(
 	case lineWidth > targetLineWidth:
 		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineShrinkability}
 	case lineWidth < targetLineWidth:
+		// TODO: use number of infinite stretchability items instead
 		if lineStretchability >= primitives.InfiniteStretchability {
 			return d.ZeroRatio
 		}

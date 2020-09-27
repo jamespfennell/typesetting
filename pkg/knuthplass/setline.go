@@ -53,7 +53,7 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 		err = &SetLineError{TargetLineLength: lineLength, ActualLineLength: itemList.Width()}
 	}
 
-	glueAdjustments := buildGlueAdjustments(itemList, lineLength, adjustmentRatio)
+	glueAdjustments := buildFiniteGlueAdjustments(itemList, lineLength, adjustmentRatio)
 	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
 		fixedItems[i].Visible = !itemList.Get(i).IsPenalty()
 		fixedItems[i].Width = itemList.Get(i).Width() + glueAdjustments[i]
@@ -62,7 +62,7 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 	return fixedItems, err
 }
 
-func buildGlueAdjustments(
+func buildFiniteGlueAdjustments(
 	itemList *primitives.ItemList,
 	lineLength d.Distance,
 	adjustmentRatio d.Ratio,

@@ -62,15 +62,16 @@ func TestLineData(t *testing.T) {
 		expectedWidth          d.Distance
 		expectedShrinkability  d.Distance
 		expectedStretchability d.Distance
+		expectedNumInfStretch  int
 	}{
-		{-1, 2, 1 + 2 + 3, 10, 100},             // First lineIndex is correct
-		{-1, 3, 1 + 2 + 3, 10, 100},             // First lineIndex is correct + end glue ignored
-		{0, 2, 3, 0, 0},                         // First glue ignored
-		{2, 6, 5 + 6 + 7, 30, 300},              // BreakpointPenalty width counted
-		{4, 9, 10, 0, 0},                        // Glue + penalty at start ignored
-		{4, 8, 0, 0, 0},                         // No box on the lineIndex
-		{9, 10, 0, 0, 0},                        // No box on the lineIndex (end of paragraph)
-		{1, 9, 45, 140, InfiniteStretchability}, // Happy path
+		{-1, 2, 1 + 2 + 3, 10, 100, 0},             // First lineIndex is correct
+		{-1, 3, 1 + 2 + 3, 10, 100, 0},             // First lineIndex is correct + end glue ignored
+		{0, 2, 3, 0, 0, 0},                         // First glue ignored
+		{2, 6, 5 + 6 + 7, 30, 300, 0},              // BreakpointPenalty width counted
+		{4, 9, 10, 0, 0, 0},                        // Glue + penalty at start ignored
+		{4, 8, 0, 0, 0, 0},                         // No box on the lineIndex
+		{9, 10, 0, 0, 0, 0},                        // No box on the lineIndex (end of paragraph)
+		{1, 9, 45, 140, InfiniteStretchability, 1}, // Happy path
 	}
 
 	lineData := NewItemList(items)
@@ -112,6 +113,19 @@ func TestLineData(t *testing.T) {
 					params.thisBreakpoint,
 					actualStretchability,
 					params.expectedStretchability,
+				)
+			}
+		})
+
+		t.Run("", func(t *testing.T) {
+			actualNumInf := lineItems.NumInfStretchableItems()
+			if params.expectedNumInfStretch != actualNumInf {
+				t.Errorf(
+					"lineData.NumInfStretchableItems(%d, %d) = %d != %d",
+					params.previousBreakpoint,
+					params.thisBreakpoint,
+					actualNumInf,
+					params.expectedNumInfStretch,
 				)
 			}
 		})
