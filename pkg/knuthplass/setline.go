@@ -54,18 +54,11 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 	}
 
 	glueAdjustments := buildGlueAdjustments(itemList, lineLength, adjustmentRatio)
-	for i := firstBoxIndex; i < itemList.Length(); i++ {
+	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
 		fixedItems[i].Visible = !itemList.Get(i).IsPenalty()
 		fixedItems[i].Width = itemList.Get(i).Width() + glueAdjustments[i]
 	}
-	lastItem := itemList.Get(itemList.Length() - 1)
-	lastItemWidthOffset := lastItem.EndOfLineWidth() - lastItem.Width()
-	if lastItemWidthOffset != 0 {
-		fixedItems[itemList.Length()-1].Width += lastItemWidthOffset
-		// TODO: this assumption is false as we will discover with a test :)
-		// Assumption: the last item having a non-zero summand means it's a glue item to be discarded.
-		fixedItems[itemList.Length()-1].Visible = false
-	}
+	fixedItems[itemList.Length()-1] = buildFinalFixedItem(itemList.Get(itemList.Length() - 1))
 	return fixedItems, err
 }
 
@@ -82,7 +75,7 @@ func buildGlueAdjustments(
 	}
 	// We ignore the error because it's handled upstream
 	firstBoxIndex, _ := itemList.FirstBoxIndex()
-	offset := make([]d.Distance, itemList.Length())
+	offset := make([]d.Distance, itemList.Length()-1)
 	var totalOffset d.Distance
 	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
 		if scalingPropertyGetter(itemList.Get(i)) == 0 {
@@ -112,4 +105,11 @@ func buildGlueAdjustments(
 		}
 	}
 	return offset
+}
+
+func buildFinalFixedItem(lastItem primitives.Item) FixedItem {
+	return FixedItem{
+		Visible: lastItem.IsPenalty() || lastItem.IsBox(),
+		Width: lastItem.EndOfLineWidth(),
+	}
 }

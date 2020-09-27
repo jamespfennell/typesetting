@@ -6,14 +6,9 @@ import (
 	"testing"
 )
 
-// Infinite stretch with negative stretch box
-// 2 infinite stretches with other stretchable box
-// 2 finite stretches of different stretchability
-
-// Underfull line
-// Penalty with non-zero width at the end of the line
-// Invisible items at the end
-// Mark penalty items as invisible if not at the end
+// Infinite stretch with negative stretch box distraction
+// Infinite stretch with regular stretch
+// 2 infinite stretches , sp tie break
 
 func TestSetLine_ErrorCases(t *testing.T) {
 	paramsList := []struct {
@@ -234,6 +229,22 @@ func TestSetLine_NoErrorCases(t *testing.T) {
 				{true, 20},
 				{true, 20},
 				{false, 0},
+				{true, 20},
+			},
+		},
+		{
+			"Final penalty item is not invisible",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, 10),
+				primitives.NewBox(20),
+				primitives.NewPenalty(20, 0, false),
+			},
+			80,
+			[]FixedItem{
+				{true, 20},
+				{true, 20},
+				{true, 20},
 				{true, 20},
 			},
 		},
