@@ -40,6 +40,9 @@ type Item interface {
 	// In general use of this method should be avoided and code should instead rely on the other polymorphic
 	// methods.
 	IsBox() bool
+
+	// IsPenalty returns whether the item is a penalty.
+	IsPenalty() bool
 }
 
 // NewBox creates and returns a new box item.
@@ -81,6 +84,10 @@ func (*box) IsValidBreakpoint(Item) bool {
 
 func (*box) IsBox() bool {
 	return true
+}
+
+func (*box) IsPenalty() bool {
+	return false
 }
 
 // NewGlue creates and returns a new glue item.
@@ -126,6 +133,10 @@ func (*glue) IsValidBreakpoint(precedingItem Item) bool {
 }
 
 func (*glue) IsBox() bool {
+	return false
+}
+
+func (*glue) IsPenalty() bool {
 	return false
 }
 
@@ -193,6 +204,10 @@ func (penalty *penalty) IsValidBreakpoint(Item) bool {
 
 func (*penalty) IsBox() bool {
 	return false
+}
+
+func (*penalty) IsPenalty() bool {
+	return true
 }
 
 // ItemList is a data structure representing an ordered list of items and common operations on them.

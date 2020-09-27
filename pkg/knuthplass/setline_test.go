@@ -12,8 +12,6 @@ import (
 
 // Underfull line
 // Penalty with non-zero width at the end of the line
-// Stretchable item at the end of the line should be ignored
-// Widths fit exactly
 // Invisible items at the end
 // Mark penalty items as invisible if not at the end
 
@@ -41,6 +39,21 @@ func TestSetLine_ErrorCases(t *testing.T) {
 				{false, 0},
 			},
 			0,
+		},
+		{
+			"Underfull line",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, 0),
+				primitives.NewBox(20),
+			},
+			70,
+			[]FixedItem{
+				{true, 20},
+				{true, 20},
+				{true, 20},
+			},
+			60,
 		},
 		{
 			"Very negative adjustment ratio / can't shrink line enough",
@@ -89,6 +102,20 @@ func TestSetLine_NoErrorCases(t *testing.T) {
 			[]FixedItem{
 				{true, 20},
 				{true, 25},
+				{true, 20},
+			},
+		},
+		{
+			"Perfectly fitting list of boxes",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewBox(20),
+				primitives.NewBox(20),
+			},
+			60,
+			[]FixedItem{
+				{true, 20},
+				{true, 20},
 				{true, 20},
 			},
 		},
@@ -179,7 +206,7 @@ func TestSetLine_NoErrorCases(t *testing.T) {
 			},
 		},
 		{
-			"Glue at end of line to be ignored",
+			"Glue at end of line is ignored",
 			[]primitives.Item{
 				primitives.NewBox(20),
 				primitives.NewGlue(20, 10, 10),
@@ -192,6 +219,22 @@ func TestSetLine_NoErrorCases(t *testing.T) {
 				{true, 20},
 				{true, 20},
 				{false, 0},
+			},
+		},
+		{
+			"Interior penalty item is invisible",
+			[]primitives.Item{
+				primitives.NewBox(20),
+				primitives.NewGlue(20, 10, 10),
+				primitives.NewPenalty(20, 0, false),
+				primitives.NewBox(20),
+			},
+			60,
+			[]FixedItem{
+				{true, 20},
+				{true, 20},
+				{false, 0},
+				{true, 20},
 			},
 		},
 	}
