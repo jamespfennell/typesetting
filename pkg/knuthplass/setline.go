@@ -35,41 +35,82 @@ func (err *SetLineError) IsUnderfull() bool {
 
 func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem, *SetLineError) {
 	fixedItems := make([]FixedItem, itemList.Length())
-	firstBoxIndex, err := itemList.FirstBoxIndex()
-	if err != nil {
+	firstBoxIndex, firstBoxIndexErr := itemList.FirstBoxIndex()
+	if firstBoxIndexErr != nil {
 		return fixedItems, &SetLineError{TargetLineLength: lineLength, ActualLineLength: 0}
 	}
 	offset := make([]d.Distance, itemList.Length())
 	adjustmentRatio := calculateAdjustmentRatio(
 		itemList.Width(), itemList.Shrinkability(), itemList.Stretchability(), lineLength)
-	if adjustmentRatio.LessThan(d.ZeroRatio) {
-		var totalOffset d.Distance
-		for i := firstBoxIndex; i < itemList.Length(); i++ {
-			if itemList.Get(i).Shrinkability() == 0 {
-				continue
-			}
-			// Will in general under shrink due to the round off error
-			offset[i] = (itemList.Get(i).Shrinkability() * adjustmentRatio.Num) / adjustmentRatio.Den
-			totalOffset += offset[i]
-		}
-		// Missing is always positive because we haven't shrunk the itemList enough yet
-		// Missing is non-zero only due to round off errors. It will be at most the number of non-zero shrinkable
-		// items
-		missing := itemList.Width() + totalOffset - lineLength
-		for i := firstBoxIndex; i < itemList.Length(); i++ {
-			if missing == 0 {
-				break
-			}
-			if itemList.Get(i).Shrinkability() == 0 {
-				continue
-			}
-			offset[i] -= 1
-			missing -= 1
-		}
-
+	var err *SetLineError
+	if adjustmentRatio.LessThan(d.MinusOneRatio) {
+		err = &SetLineError{TargetLineLength: lineLength, ActualLineLength: itemList.Width() - itemList.Stretchability()}
+		adjustmentRatio = d.MinusOneRatio
 	}
+	offset = buildAdjustmentSummands(itemList, lineLength, adjustmentRatio)
 	for i := firstBoxIndex; i < itemList.Length(); i++ {
 		fixedItems[i] = FixedItem{Visible: true, Width: itemList.Get(i).Width() + offset[i]}
 	}
-	return fixedItems, nil
+	lastItem := itemList.Get(itemList.Length() - 1)
+	lastItemWidthOffset := lastItem.EndOfLineWidth() - lastItem.Width()
+	if lastItemWidthOffset != 0 {
+		fixedItems[itemList.Length()-1].Width += lastItemWidthOffset
+		// Assumption: the last item having an offset means it's a glue item to be discarded.
+		fixedItems[itemList.Length()-1].Visible = false
+	}
+	return fixedItems, err
+}
+
+func getShrinkability(item primitives.Item) d.Distance {
+	return item.Shrinkability()
+}
+
+func getStretchability(item primitives.Item) d.Distance {
+	return item.Stretchability()
+}
+
+func buildAdjustmentSummands(
+	itemList *primitives.ItemList,
+	lineLength d.Distance,
+	adjustmentRatio d.Ratio,
+) []d.Distance {
+	var scalingPropertyGetter func(primitives.Item) d.Distance
+	if adjustmentRatio.LessThan(d.ZeroRatio) {
+		scalingPropertyGetter = getShrinkability
+	} else {
+		scalingPropertyGetter = getStretchability
+	}
+	// We ignore the error because it's handled upstream
+	firstBoxIndex, _ := itemList.FirstBoxIndex()
+	offset := make([]d.Distance, itemList.Length())
+	var totalOffset d.Distance
+	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
+		if scalingPropertyGetter(itemList.Get(i)) == 0 {
+			continue
+		}
+		// Note that the result will be at most what it should be, and potentially 1 less.
+		offset[i] = (scalingPropertyGetter(itemList.Get(i)) * adjustmentRatio.Num) / adjustmentRatio.Den
+		totalOffset += offset[i]
+	}
+	// Missing is non-zero only due to round off errors. Its magnitude will be at most the number of items
+	// with non-zero scaling
+	missing := lineLength - (itemList.Width() + totalOffset)
+	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
+		if missing == 0 {
+			break
+		}
+		// In no case will we shrink an item more than its shrinkability allows.
+		// TODO: I bet there's an edge case where the line length is not what it should be because of this
+		if -scalingPropertyGetter(itemList.Get(i)) == offset[i] {
+			continue
+		}
+		if missing > 0 {
+			offset[i] += 1
+			missing -= 1
+		} else {
+			offset[i] -= 1
+			missing += 1
+		}
+	}
+	return offset
 }
