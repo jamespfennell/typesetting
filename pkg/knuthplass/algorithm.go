@@ -97,13 +97,10 @@ func CalculateBreakpoints(
 			} else {
 				thisLineIndex = lineLengths.GetNextPseudoIndex(sourceNode.lineIndex)
 			}
-			thisLineItems := itemList.Slice(sourceNode.itemIndex+1, itemIndex+1)
-			adjustmentRatio := calculateAdjustmentRatio(
-				thisLineItems.Width(),
-				thisLineItems.Shrinkability(),
-				thisLineItems.Stretchability(),
-				lineLengths.GetLength(thisLineIndex),
-			)
+			adjustmentRatio :=
+				itemList.Slice(sourceNode.itemIndex+1, itemIndex+1).CalculateAdjustmentRatio(
+					lineLengths.GetLength(thisLineIndex))
+
 			targetNode := nodeID{
 				itemIndex:    itemIndex,
 				lineIndex:    thisLineIndex,
@@ -225,26 +222,6 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 		return node2
 	}
 	return node1
-}
-
-func calculateAdjustmentRatio(
-	lineWidth d.Distance,
-	lineShrinkability d.Distance,
-	lineStretchability d.Distance,
-	targetLineWidth d.Distance,
-) d.Ratio {
-	switch {
-	case lineWidth > targetLineWidth:
-		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineShrinkability}
-	case lineWidth < targetLineWidth:
-		// TODO: use number of infinite stretchability items instead
-		if lineStretchability >= primitives.InfiniteStretchability {
-			return d.ZeroRatio
-		}
-		return d.Ratio{Num: -lineWidth + targetLineWidth, Den: lineStretchability}
-	default:
-		return d.ZeroRatio
-	}
 }
 
 // NoSolutionError is returned if the problem has no solution satisfying the optimality constraints

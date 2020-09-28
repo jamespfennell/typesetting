@@ -39,8 +39,7 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 	if firstBoxIndexErr != nil {
 		return fixedItems, &SetLineError{TargetLineLength: lineLength, ActualLineLength: 0}
 	}
-	adjustmentRatio := calculateAdjustmentRatio(
-		itemList.Width(), itemList.Shrinkability(), itemList.Stretchability(), lineLength)
+	adjustmentRatio := itemList.CalculateAdjustmentRatio(lineLength)
 
 	var err *SetLineError
 	// If the adjustment ratio is really small, mark an error.
@@ -53,7 +52,7 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 		err = &SetLineError{TargetLineLength: lineLength, ActualLineLength: itemList.Width()}
 	}
 
-	glueAdjustments := buildFiniteGlueAdjustments(itemList, lineLength, adjustmentRatio)
+	glueAdjustments := buildFiniteGlueAdjustments(itemList, adjustmentRatio)
 	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
 		fixedItems[i].Visible = !itemList.Get(i).IsPenalty()
 		fixedItems[i].Width = itemList.Get(i).Width() + glueAdjustments[i]
@@ -64,7 +63,6 @@ func SetLine(itemList *primitives.ItemList, lineLength d.Distance) ([]FixedItem,
 
 func buildFiniteGlueAdjustments(
 	itemList *primitives.ItemList,
-	lineLength d.Distance,
 	adjustmentRatio d.Ratio,
 ) []d.Distance {
 	var scalingPropertyGetter func(primitives.Item) d.Distance
@@ -87,13 +85,15 @@ func buildFiniteGlueAdjustments(
 	}
 	// Missing is non-zero only due to round off errors. Its magnitude will be at most the number of items
 	// with non-zero scaling
-	missing := lineLength - (itemList.Width() + totalOffset)
+	if adjustmentRatio.LessThanEqual(d.MinusOneRatio) {
+		return offset
+	}
+	missing := adjustmentRatio.Num - totalOffset
 	for i := firstBoxIndex; i < itemList.Length()-1; i++ {
 		if missing == 0 {
 			break
 		}
-		// In no case will we shrink an item more than its shrinkability allows.
-		if -scalingPropertyGetter(itemList.Get(i)) == offset[i] {
+		if scalingPropertyGetter(itemList.Get(i)) == 0 {
 			continue
 		}
 		if missing > 0 {

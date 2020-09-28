@@ -366,3 +366,18 @@ func (itemList *ItemList) NumInfStretchableItems() int {
 	}
 	return itemList.numInfStretchableItems[len(itemList.items)-1] - itemList.numInfStretchableItems[firstBoxIndex]
 }
+
+func (itemList *ItemList) CalculateAdjustmentRatio(targetLineWidth d.Distance) d.Ratio {
+	widthDifference := targetLineWidth - itemList.Width()
+	switch {
+	case widthDifference < 0:
+		return d.Ratio{Num: widthDifference, Den: itemList.Shrinkability()}
+	case widthDifference > 0:
+		if itemList.NumInfStretchableItems() > 0 {
+			return d.ZeroRatio
+		}
+		return d.Ratio{Num: widthDifference, Den: itemList.Stretchability()}
+	default:
+		return d.ZeroRatio
+	}
+}

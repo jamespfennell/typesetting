@@ -132,6 +132,41 @@ func TestLineData(t *testing.T) {
 	}
 }
 
+func TestInfiniteStretchability(t *testing.T) {
+	paramsList := []struct{
+		items []Item
+		expected int
+	}{
+		{
+			[]Item{
+				NewBox(20),
+				NewGlue(20, 10, InfiniteStretchability),
+				NewBox(20),
+				NewGlue(20, 10, InfiniteStretchability),
+			},
+			1,
+		},
+		{
+			[]Item{
+				NewGlue(20, 10, InfiniteStretchability),
+				NewBox(20),
+				NewGlue(20, 10, InfiniteStretchability),
+				NewBox(20),
+			},
+			1,
+		},
+	}
+	for _, params := range paramsList {
+		actual := NewItemList(params.items).NumInfStretchableItems()
+		if actual != params.expected {
+			t.Errorf(
+				"lineData.NumInfStretchableItems() = %d != %d",
+				actual,
+				params.expected,
+			)
+		}
+	}
+}
 func TestItemListGetNextBoxIndex(t *testing.T) {
 	itemList := NewItemList([]Item{
 		NewBox(1),
