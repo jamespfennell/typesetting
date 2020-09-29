@@ -267,7 +267,7 @@ func NewItemList(items []Item) *ItemList {
 		aggregateWidth:          make([]d.Distance, len(items)+1),
 		aggregateShrinkability:  make([]d.Distance, len(items)+1),
 		aggregateStretchability: make([]d.Distance, len(items)+1),
-		numInfStretchableItems: make([]int, len(items)+1),
+		numInfStretchableItems:  make([]int, len(items)+1),
 		positionToNextBoxOffset: make([]int, len(items)),
 		items:                   items,
 	}
@@ -349,13 +349,9 @@ func (itemList *ItemList) Stretchability() d.Distance {
 	if err != nil {
 		return 0
 	}
-	rawStretchability := itemList.aggregateStretchability[len(itemList.items)] -
+	return itemList.aggregateStretchability[len(itemList.items)] -
 		itemList.aggregateStretchability[nextBoxIndex] -
 		itemList.items[len(itemList.items)-1].Stretchability()
-	if rawStretchability < InfiniteStretchability {
-		return rawStretchability
-	}
-	return InfiniteStretchability
 }
 
 // NumInfStretchableItems returns the number of items in the ItemList that are infinitely stretchable.
