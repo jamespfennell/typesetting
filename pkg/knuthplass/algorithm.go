@@ -3,19 +3,26 @@
 //
 // Users of this package must first create:
 //
-// - a slice of Item types representing the problem at hand, and then use these to initialize an ItemList.
+// - a slice of primitives.Item types representing the problem at hand, and then use these to initialize a
+//	 primitives.ItemList.
 //
-// - a LineLengths type that describes the line lengths in the paragraph.
+// - a lines.LineLengths type that describes the line lengths in the paragraph.
 //
-// - an OptimalityCriteria type that describes the optimization criteria. The type TexOptimalityCriteria provides
-// the optimality criteria as used in the Tex typesetting system.
+// - an criteria.OptimalityCriteria type that describes the optimization criteria. The type
+//   criteria.TexOptimalityCriteria provides the optimality criteria as used in the Tex typesetting system.
 //
-// With these, the Knuth-Plass algorithm can be run using the CalculateBreakpoints function.
-// After this, the lines can be set (i.e., the exact width of each input Item can be fixed) using the TBD function.
+// With these, the Knuth-Plass algorithm can be run using the CalculateBreakpoints function to identify the optimal
+// breakpoints.
+// After this, the lines can be set (i.e., the exact width of each input Item can be fixed) using the SetLine function.
 package knuthplass
 
 import (
 	"fmt"
+	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/criteria"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/lines"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/logging"
+	"github.com/jamespfennell/typesetting/pkg/knuthplass/primitives"
 )
 
 // CalculateBreakpointsResult stores the result of the CalculateBreakpoints Knuth-Plass algorithm.
@@ -31,7 +38,7 @@ type CalculateBreakpointsResult struct {
 
 	// Logger contains a BreakpointLogger with results of the internal calculations performed during the function.
 	// If the enableLogging parameter to CalculateBreakpoints was false, the logger will be nil.
-	Logger *BreakpointLogger
+	Logger *logging.BreakpointLogger
 }
 
 // CalculateBreakpoints is the package's implementation of the Knuth-Plass algorithm.
@@ -50,9 +57,9 @@ type CalculateBreakpointsResult struct {
 // Consult the documentation on the output type CalculateBreakpointsResult for more information on this function
 // and its parameters.
 func CalculateBreakpoints(
-	itemList *ItemList,
-	lineLengths LineLengths,
-	criteria OptimalityCriteria,
+	itemList *primitives.ItemList,
+	lineLengths lines.LineLengths,
+	criteria criteria.OptimalityCriteria,
 	fallbackToIllegalSolution bool,
 	enableLogging bool,
 ) CalculateBreakpointsResult {
@@ -61,9 +68,9 @@ func CalculateBreakpoints(
 	firstNode.demerits = 0
 	var problematicItemIndices []int
 
-	var logger *BreakpointLogger
+	var logger *logging.BreakpointLogger
 	if enableLogging {
-		logger = NewBreakpointLogger()
+		logger = logging.NewBreakpointLogger()
 	} else {
 		logger = nil
 	}
@@ -78,7 +85,7 @@ func CalculateBreakpoints(
 			// We refer to the target node using a nodeID object. This is because the target node is not in the
 			// active set, and hence there is no node object corresponding it.
 			targetNode      nodeID
-			adjustmentRatio float64
+			adjustmentRatio d.Ratio
 		}
 		var edges []edge
 		var fallbackEdges []edge
@@ -92,29 +99,26 @@ func CalculateBreakpoints(
 			} else {
 				thisLineIndex = lineLengths.GetNextPseudoIndex(sourceNode.lineIndex)
 			}
-			thisLineItems := itemList.Slice(sourceNode.itemIndex+1, itemIndex+1)
-			adjustmentRatio := calculateAdjustmentRatio(
-				thisLineItems.Width(),
-				thisLineItems.Shrinkability(),
-				thisLineItems.Stretchability(),
-				lineLengths.GetLength(thisLineIndex),
-			)
+			adjustmentRatio :=
+				itemList.Slice(sourceNode.itemIndex+1, itemIndex+1).CalculateAdjustmentRatio(
+					lineLengths.GetLength(thisLineIndex))
+
 			targetNode := nodeID{
 				itemIndex:    itemIndex,
 				lineIndex:    thisLineIndex,
 				fitnessClass: criteria.CalculateFitnessClass(adjustmentRatio),
 			}
 			if logger != nil {
-				logger.AdjustmentRatiosTable.AddCell(sourceNode, targetNode, adjustmentRatio)
+				logger.AdjustmentRatiosTable.AddCell(sourceNode.id(), targetNode, adjustmentRatio)
 			}
-			if adjustmentRatio < -1 || item.BreakpointPenalty() <= NegInfBreakpointPenalty {
+			if adjustmentRatio.LessThan(d.MinusOneRatio) || item.BreakpointPenalty() <= primitives.NegInfBreakpointPenalty {
 				sourceNodesToDeactivate = append(sourceNodesToDeactivate, sourceNode)
 			} else {
 				allActiveNodesToBeDeactivated = false
 			}
 			thisEdge := edge{sourceNode: sourceNode, targetNode: targetNode, adjustmentRatio: adjustmentRatio}
 			switch true {
-			case adjustmentRatio >= -1 && adjustmentRatio <= criteria.GetMaxAdjustmentRatio():
+			case d.MinusOneRatio.LessThanEqual(adjustmentRatio) && adjustmentRatio.LessThanEqual(criteria.GetMaxAdjustmentRatio()):
 				edges = append(edges, thisEdge)
 			case len(edges) == 0 && allActiveNodesToBeDeactivated:
 				fallbackEdges = append(fallbackEdges, thisEdge)
@@ -141,9 +145,9 @@ func CalculateBreakpoints(
 				previousItemIsFlaggedBreakpoint,
 			)
 			if logger != nil {
-				logger.LineDemeritsTable.AddCell(edge.sourceNode, edge.targetNode, lineDemerits)
+				logger.LineDemeritsTable.AddCell(edge.sourceNode.id(), edge.targetNode, lineDemerits)
 				logger.TotalDemeritsTable.AddCell(
-					edge.sourceNode,
+					edge.sourceNode.id(),
 					edge.targetNode,
 					lineDemerits+edge.sourceNode.demerits,
 				)
@@ -192,7 +196,7 @@ func buildBreakpoints(node *node) []int {
 
 // updateTargetNodeIfNewSourceNodeIsBetter changes the previous node of the targetNode to be the provided
 // candidatePrevNode if that node results in the targetNode having fewer demerits.
-func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits float64) {
+func updateTargetNodeIfNewSourceNodeIsBetter(targetNode *node, candidatePrevNode *node, edgeDemerits criteria.Demerits) {
 	totalDemerits := candidatePrevNode.demerits + edgeDemerits
 	switch true {
 	case targetNode.prevNode == nil || totalDemerits < targetNode.demerits:
@@ -222,25 +226,6 @@ func selectSmallerNode(node1 *node, node2 *node) *node {
 	return node1
 }
 
-func calculateAdjustmentRatio(
-	lineWidth int64,
-	lineShrinkability int64,
-	lineStretchability int64,
-	targetLineWidth int64,
-) float64 {
-	switch {
-	case lineWidth > targetLineWidth:
-		return float64(-lineWidth+targetLineWidth) / float64(lineShrinkability)
-	case lineWidth < targetLineWidth:
-		if lineStretchability >= InfiniteStretchability {
-			return 0
-		}
-		return float64(-lineWidth+targetLineWidth) / float64(lineStretchability)
-	default:
-		return 0
-	}
-}
-
 // NoSolutionError is returned if the problem has no solution satisfying the optimality constraints
 type NoSolutionError struct {
 	ProblematicItemIndices []int
@@ -258,15 +243,19 @@ func (err *NoSolutionError) Error() string {
 type node struct {
 	itemIndex    int
 	lineIndex    int
-	fitnessClass FitnessClass
-	demerits     float64
+	fitnessClass criteria.FitnessClass
+	demerits     criteria.Demerits
 	prevNode     *node
 }
 
 type nodeID struct {
 	itemIndex    int
 	lineIndex    int
-	fitnessClass FitnessClass
+	fitnessClass criteria.FitnessClass
+}
+
+func (node nodeID) ID() string {
+	return fmt.Sprintf("%d/%d/%d", node.itemIndex, node.lineIndex, node.fitnessClass)
 }
 
 func (node *node) id() nodeID {

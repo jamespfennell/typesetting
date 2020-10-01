@@ -1,4 +1,6 @@
-package knuthplass
+package lines
+
+import d "github.com/jamespfennell/typesetting/pkg/distance"
 
 // LineLengths provides the lengths of the lines in a paragraph.
 //
@@ -34,29 +36,29 @@ package knuthplass
 // unique line pseudo indexes in the paragraph.
 type LineLengths interface {
 	// GetLength returns the length of the line at the provided pseudo index.
-	GetLength(pseudoIndex int) int64
+	GetLength(pseudoIndex int) d.Distance
 
 	// GetNextPseudoIndex returns the pseudo index of the line after the line specified by the given pseudo index.
 	GetNextPseudoIndex(pseudoIndex int) int
 }
 
 // NewConstantLineLengths constructs a new LineLengths data structure where each line has the same length.
-func NewConstantLineLengths(constantLength int64) LineLengths {
-	return &basicLineLengthsImpl{initialLengths: []int64{}, subsequentLengths: constantLength}
+func NewConstantLineLengths(constantLength d.Distance) LineLengths {
+	return &basicLineLengthsImpl{initialLengths: []d.Distance{}, subsequentLengths: constantLength}
 }
 
 // NewVariableLineLengths constructs a new LineLengths data structure where the first lines have the variable
 // lengths given in the lengths parameter, and all subsequent lines have the length given in subsequentLengths.
-func NewVariableLineLengths(lengths []int64, subsequentLengths int64) LineLengths {
+func NewVariableLineLengths(lengths []d.Distance, subsequentLengths d.Distance) LineLengths {
 	return &basicLineLengthsImpl{initialLengths: lengths, subsequentLengths: subsequentLengths}
 }
 
 type basicLineLengthsImpl struct {
-	initialLengths    []int64
-	subsequentLengths int64
+	initialLengths    []d.Distance
+	subsequentLengths d.Distance
 }
 
-func (lineLengths *basicLineLengthsImpl) GetLength(pseudoIndex int) int64 {
+func (lineLengths *basicLineLengthsImpl) GetLength(pseudoIndex int) d.Distance {
 	if pseudoIndex < len(lineLengths.initialLengths) {
 		return lineLengths.initialLengths[pseudoIndex]
 	}

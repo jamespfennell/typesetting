@@ -1,6 +1,9 @@
-package knuthplass
+package lines
 
-import "testing"
+import (
+	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"testing"
+)
 
 func TestConstantLineLengths(t *testing.T) {
 	lineLengths := NewConstantLineLengths(2000)
@@ -20,9 +23,9 @@ func TestConstantLineLengths(t *testing.T) {
 }
 
 func TestVariableLineLengths(t *testing.T) {
-	expectedLineLengths := []int64{3000, 1000, 4000}
+	expectedLineLengths := []d.Distance{3000, 1000, 4000}
 	expectedNextPseudoIndex := []int{1, 2, 3}
-	lineLengths := NewVariableLineLengths([]int64{3000, 1000, 4000}, 2000)
+	lineLengths := NewVariableLineLengths([]d.Distance{3000, 1000, 4000}, 2000)
 
 	for i := 0; i < 3; i++ {
 		if lineLengths.GetLength(i) != expectedLineLengths[i] {

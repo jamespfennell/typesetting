@@ -1,6 +1,9 @@
-package knuthplass
+package primitives
 
-import "testing"
+import (
+	d "github.com/jamespfennell/typesetting/pkg/distance"
+	"testing"
+)
 
 func TestIsValidBreakpoint(t *testing.T) {
 	paramsList := []struct {
@@ -48,7 +51,7 @@ func TestLineData(t *testing.T) {
 		NewBox(5),
 		NewGlue(6, 30, 300),
 		NewPenalty(7, 0, false),
-		NewGlue(8, 40, InfiniteStretchability),
+		NewInfStretchGlue(8, 40),
 		NewGlue(9, 50, 500),
 		NewBox(10),
 		NewGlue(11, 50, 600),
@@ -56,18 +59,19 @@ func TestLineData(t *testing.T) {
 	paramsList := []struct {
 		previousBreakpoint     int
 		thisBreakpoint         int
-		expectedWidth          int64
-		expectedShrinkability  int64
-		expectedStretchability int64
+		expectedWidth          d.Distance
+		expectedShrinkability  d.Distance
+		expectedStretchability d.Distance
+		expectedNumInfStretch  int
 	}{
-		{-1, 2, 1 + 2 + 3, 10, 100},             // First lineIndex is correct
-		{-1, 3, 1 + 2 + 3, 10, 100},             // First lineIndex is correct + end glue ignored
-		{0, 2, 3, 0, 0},                         // First glue ignored
-		{2, 6, 5 + 6 + 7, 30, 300},              // BreakpointPenalty width counted
-		{4, 9, 10, 0, 0},                        // Glue + penalty at start ignored
-		{4, 8, 0, 0, 0},                         // No box on the lineIndex
-		{9, 10, 0, 0, 0},                        // No box on the lineIndex (end of paragraph)
-		{1, 9, 45, 140, InfiniteStretchability}, // Happy path
+		{-1, 2, 1 + 2 + 3, 10, 100, 0}, // First lineIndex is correct
+		{-1, 3, 1 + 2 + 3, 10, 100, 0}, // First lineIndex is correct + end glue ignored
+		{0, 2, 3, 0, 0, 0},             // First glue ignored
+		{2, 6, 5 + 6 + 7, 30, 300, 0},  // BreakpointPenalty width counted
+		{4, 9, 10, 0, 0, 0},            // Glue + penalty at start ignored
+		{4, 8, 0, 0, 0, 0},             // No box on the lineIndex
+		{9, 10, 0, 0, 0, 0},            // No box on the lineIndex (end of paragraph)
+		{1, 9, 45, 140, 0, 1},          // Happy path
 	}
 
 	lineData := NewItemList(items)
@@ -102,19 +106,72 @@ func TestLineData(t *testing.T) {
 
 		t.Run("", func(t *testing.T) {
 			actualStretchability := lineItems.Stretchability()
-			if params.expectedStretchability != actualStretchability {
+			if actualStretchability.IsInfinite() {
+				return
+			}
+			if params.expectedStretchability != actualStretchability.FiniteValue() {
+				{
+					t.Errorf(
+						"lineData.GetStretchability(%d, %d) = %d != %d",
+						params.previousBreakpoint,
+						params.thisBreakpoint,
+						actualStretchability,
+						params.expectedStretchability,
+					)
+				}
+			}
+		})
+
+		t.Run("", func(t *testing.T) {
+			actualNumInf := lineItems.NumInfStretchableItems()
+			if params.expectedNumInfStretch != actualNumInf {
 				t.Errorf(
-					"lineData.GetStretchability(%d, %d) = %d != %d",
+					"lineData.NumInfStretchableItems(%d, %d) = %d != %d",
 					params.previousBreakpoint,
 					params.thisBreakpoint,
-					actualStretchability,
-					params.expectedStretchability,
+					actualNumInf,
+					params.expectedNumInfStretch,
 				)
 			}
 		})
 	}
 }
 
+func TestInfiniteStretchability(t *testing.T) {
+	paramsList := []struct {
+		items    []Item
+		expected int
+	}{
+		{
+			[]Item{
+				NewBox(20),
+				NewInfStretchGlue(20, 10),
+				NewBox(20),
+				NewInfStretchGlue(20, 10),
+			},
+			1,
+		},
+		{
+			[]Item{
+				NewInfStretchGlue(20, 10),
+				NewBox(20),
+				NewInfStretchGlue(20, 10),
+				NewBox(20),
+			},
+			1,
+		},
+	}
+	for _, params := range paramsList {
+		actual := NewItemList(params.items).NumInfStretchableItems()
+		if actual != params.expected {
+			t.Errorf(
+				"lineData.NumInfStretchableItems() = %d != %d",
+				actual,
+				params.expected,
+			)
+		}
+	}
+}
 func TestItemListGetNextBoxIndex(t *testing.T) {
 	itemList := NewItemList([]Item{
 		NewBox(1),
@@ -124,7 +181,7 @@ func TestItemListGetNextBoxIndex(t *testing.T) {
 		NewBox(5),
 		NewGlue(6, 30, 300),
 		NewPenalty(7, 0, false),
-		NewGlue(8, 40, InfiniteStretchability),
+		NewInfStretchGlue(8, 40),
 		NewGlue(9, 50, 500),
 		NewBox(10),
 		NewGlue(11, 50, 600),
