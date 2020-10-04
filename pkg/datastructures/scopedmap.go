@@ -14,7 +14,7 @@ package datastructures
 //	m.EndScope()
 //	m.Get("key")  // will be equal to "first value"
 type ScopedMap struct {
-	keyToRootNode map[string]*scopedMapNode
+	keyToRootNode    map[string]*scopedMapNode
 	changedKeysStack []map[string]bool
 }
 
@@ -23,13 +23,13 @@ func NewScopedMap() ScopedMap {
 	changedKeysStack := make([]map[string]bool, 1)
 	changedKeysStack[0] = make(map[string]bool)
 	return ScopedMap{
-		keyToRootNode: make(map[string]*scopedMapNode),
+		keyToRootNode:    make(map[string]*scopedMapNode),
 		changedKeysStack: changedKeysStack,
 	}
 }
 
 type scopedMapNode struct {
-	value interface{}
+	value    interface{}
 	nextNode *scopedMapNode
 }
 
@@ -47,7 +47,7 @@ func (scopedMap *ScopedMap) EndScope() {
 	for key := range scopedMap.currentScopeChangedKeys() {
 		scopedMap.keyToRootNode[key] = scopedMap.keyToRootNode[key].nextNode
 	}
-	scopedMap.changedKeysStack = scopedMap.changedKeysStack[:len(scopedMap.changedKeysStack) -1]
+	scopedMap.changedKeysStack = scopedMap.changedKeysStack[:len(scopedMap.changedKeysStack)-1]
 }
 
 // Set sets the value of a key.
@@ -57,7 +57,7 @@ func (scopedMap *ScopedMap) Set(key string, value interface{}) {
 		return
 	}
 	node := scopedMapNode{
-		value: value,
+		value:    value,
 		nextNode: scopedMap.keyToRootNode[key],
 	}
 	scopedMap.keyToRootNode[key] = &node
@@ -66,7 +66,7 @@ func (scopedMap *ScopedMap) Set(key string, value interface{}) {
 
 // Get retrieves the value of a key.
 func (scopedMap *ScopedMap) Get(key string) interface{} {
-	node :=  scopedMap.keyToRootNode[key]
+	node := scopedMap.keyToRootNode[key]
 	if node == nil {
 		return nil
 	}
@@ -74,5 +74,5 @@ func (scopedMap *ScopedMap) Get(key string) interface{} {
 }
 
 func (scopedMap *ScopedMap) currentScopeChangedKeys() map[string]bool {
-	return scopedMap.changedKeysStack[len(scopedMap.changedKeysStack) - 1]
+	return scopedMap.changedKeysStack[len(scopedMap.changedKeysStack)-1]
 }

@@ -30,7 +30,6 @@ func TestScopedDict_SingleScope(t *testing.T) {
 	}
 }
 
-
 func TestScopedDict_TwoSingleScopes(t *testing.T) {
 	m := NewScopedMap()
 	m.Set("A", "B")
@@ -45,4 +44,3 @@ func TestScopedDict_TwoSingleScopes(t *testing.T) {
 		t.Errorf("Recieved: %v; expected: %v", m.Get("A"), "B")
 	}
 }
-
