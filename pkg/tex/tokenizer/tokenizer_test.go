@@ -34,7 +34,13 @@ func TestTokenizer(t *testing.T) {
 			"\\a  b",
 			[]Token{
 				CommandToken{"a"},
-				CharacterToken{" ", catcode.Space},
+				CharacterToken{"b", catcode.Letter},
+			},
+		},
+		{
+			"\\a\n b",
+			[]Token{
+				CommandToken{"a"},
 				CharacterToken{"b", catcode.Letter},
 			},
 		},

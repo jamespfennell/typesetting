@@ -65,10 +65,6 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 				}
 			}
 		case catcode.Space:
-			if tokenizer.prevTokenIsCommand {
-				tokenizer.prevTokenIsCommand = false
-				continue
-			}
 			fallthrough
 		case catcode.EndOfLine:
 			numEndOfLines := 0
@@ -84,6 +80,9 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 			_ = tokenizer.reader.UnreadRune()
 			if numEndOfLines > 1 {
 				return CommandToken{"par"}, nil
+			}
+			if tokenizer.prevTokenIsCommand {
+				continue
 			}
 			return CharacterToken{value: s, catCode: catcode.Space}, nil
 		default:
