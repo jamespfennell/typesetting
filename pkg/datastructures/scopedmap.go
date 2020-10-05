@@ -8,11 +8,13 @@ package datastructures
 //	m := NewScopedMap()
 //	m.Set("key", "first value")
 //	m.Get("key")  // will be equal to "first value"
-//	m.NewScope()
+//	m.BeginScope()
 //	m.Set("key", "second value")
 //	m.Get("key")  // will be equal to "second value"
 //	m.EndScope()
 //	m.Get("key")  // will be equal to "first value"
+//
+// The implementation is such that all operations are O(1).
 type ScopedMap struct {
 	keyToRootNode    map[string]*scopedMapNode
 	changedKeysStack []map[string]bool
@@ -33,8 +35,8 @@ type scopedMapNode struct {
 	nextNode *scopedMapNode
 }
 
-// NewScope starts a new scope within the map.
-func (scopedMap *ScopedMap) NewScope() {
+// BeginScope starts a new scope within the map.
+func (scopedMap *ScopedMap) BeginScope() {
 	scopedMap.changedKeysStack = append(scopedMap.changedKeysStack, make(map[string]bool))
 }
 
@@ -61,7 +63,10 @@ func (scopedMap *ScopedMap) Set(key string, value interface{}) {
 		nextNode: scopedMap.keyToRootNode[key],
 	}
 	scopedMap.keyToRootNode[key] = &node
-	scopedMap.currentScopeChangedKeys()[key] = true
+	// Don't bother adding to the changed keys set if this is the global scope, as we'll never use these keys.
+	if len(scopedMap.changedKeysStack) > 1 {
+		scopedMap.currentScopeChangedKeys()[key] = true
+	}
 }
 
 // Get retrieves the value of a key.

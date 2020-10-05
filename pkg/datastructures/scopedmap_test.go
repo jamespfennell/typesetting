@@ -18,7 +18,7 @@ func TestScopedDict_BasicCase(t *testing.T) {
 func TestScopedDict_SingleScope(t *testing.T) {
 	m := NewScopedMap()
 	m.Set("A", "B")
-	m.NewScope()
+	m.BeginScope()
 	m.Set("A", "D")
 	m.Set("A", "C")
 	if m.Get("A") != "C" {
@@ -33,13 +33,13 @@ func TestScopedDict_SingleScope(t *testing.T) {
 func TestScopedDict_TwoSingleScopes(t *testing.T) {
 	m := NewScopedMap()
 	m.Set("A", "B")
-	m.NewScope()
+	m.BeginScope()
 	m.Set("A", "C")
 	if m.Get("A") != "C" {
 		t.Errorf("Recieved: %v; expected: %v", m.Get("A"), "C")
 	}
 	m.EndScope()
-	m.NewScope()
+	m.BeginScope()
 	if m.Get("A") != "B" {
 		t.Errorf("Recieved: %v; expected: %v", m.Get("A"), "B")
 	}
