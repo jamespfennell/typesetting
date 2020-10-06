@@ -87,6 +87,28 @@ func TestTokenizer(t *testing.T) {
 			},
 		},
 		{
+			"A%\n B",
+			[]Token{
+				CharacterToken{"A", catcode.Letter},
+				CharacterToken{"B", catcode.Letter},
+			},
+		},
+		{
+			"A%\n\n B",
+			[]Token{
+				CharacterToken{"A", catcode.Letter},
+				CommandToken{"par"},
+				CharacterToken{"B", catcode.Letter},
+			},
+		},
+		{
+			"\\A %\nB",
+			[]Token{
+				CommandToken{"A"},
+				CharacterToken{"B", catcode.Letter},
+			},
+		},
+		{
 			"A  B",
 			[]Token{
 				CharacterToken{"A", catcode.Letter},

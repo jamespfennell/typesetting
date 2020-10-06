@@ -22,10 +22,10 @@ type CommandToken struct {
 }
 
 type Tokenizer struct {
-	reader             *bufio.Reader
-	catCodeMap         *catcode.Map
-	prevTokenIsCommand bool
-	err                error
+	reader                *bufio.Reader
+	catCodeMap            *catcode.Map
+	swallowNextWhitespace bool
+	err                   error
 }
 
 func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
@@ -40,7 +40,7 @@ func (tokenizer *Tokenizer) NextToken() (Token, error) {
 		return nil, tokenizer.err
 	}
 	token, err := tokenizer.nextTokenInternal()
-	_, tokenizer.prevTokenIsCommand = token.(CommandToken)
+	_, tokenizer.swallowNextWhitespace = token.(CommandToken)
 	return token, err
 }
 
@@ -64,6 +64,8 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 					return nil, err
 				}
 			}
+			tokenizer.swallowNextWhitespace = true
+			fallthrough
 		case catcode.Space:
 			fallthrough
 		case catcode.EndOfLine:
@@ -81,7 +83,7 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 			if numEndOfLines > 1 {
 				return CommandToken{"par"}, nil
 			}
-			if tokenizer.prevTokenIsCommand {
+			if tokenizer.swallowNextWhitespace {
 				continue
 			}
 			return CharacterToken{value: s, catCode: catcode.Space}, nil
