@@ -10,15 +10,37 @@ import (
 	"unicode"
 )
 
-type Token interface{}
-
-type CharacterToken struct {
+type Token struct {
 	value   string
 	catCode catcode.CatCode
 }
 
-type CommandToken struct {
-	command string
+func (token Token) Value() string {
+	return token.value
+}
+
+func (token Token) IsCommand() bool {
+	return token.catCode == -1
+}
+
+func (token Token) IsNull() bool {
+	return token.catCode == -2
+}
+
+func (token Token) CatCode() catcode.CatCode {
+	return token.catCode
+}
+
+func NewCommandToken(value string) Token {
+	return Token{value: value, catCode: -1}
+}
+
+func NewCharacterToken(value string, code catcode.CatCode) Token {
+	return Token{value: value, catCode: code}
+}
+
+func NewNullToken() Token {
+	return Token{catCode: -2}
 }
 
 type Tokenizer struct {
@@ -37,10 +59,12 @@ func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
 
 func (tokenizer *Tokenizer) NextToken() (Token, error) {
 	if tokenizer.err != nil {
-		return nil, tokenizer.err
+		return NewNullToken(), tokenizer.err
 	}
 	token, err := tokenizer.nextTokenInternal()
-	_, tokenizer.swallowNextWhitespace = token.(CommandToken)
+	if err == nil {
+		tokenizer.swallowNextWhitespace = token.IsCommand()
+	}
 	return token, err
 }
 
@@ -48,20 +72,20 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 	for {
 		s, catCode, err := tokenizer.readRune()
 		if err != nil {
-			return nil, err
+			return NewNullToken(), err
 		}
 		switch catCode {
 		case catcode.Escape:
 			command, err := tokenizer.readCommand()
 			if err != nil {
-				return nil, err
+				return NewNullToken(), err
 			}
-			return CommandToken{command: command}, nil
+			return NewCommandToken(command), nil
 		case catcode.Comment:
 			for catCode != catcode.EndOfLine {
 				_, catCode, err = tokenizer.readRune()
 				if err != nil {
-					return nil, err
+					return NewNullToken(), err
 				}
 			}
 			tokenizer.swallowNextWhitespace = true
@@ -76,19 +100,19 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 				}
 				_, catCode, err = tokenizer.readRune()
 				if err != nil {
-					return nil, err
+					return NewNullToken(), err
 				}
 			}
 			_ = tokenizer.reader.UnreadRune()
 			if numEndOfLines > 1 {
-				return CommandToken{"par"}, nil
+				return NewCommandToken("par"), nil
 			}
 			if tokenizer.swallowNextWhitespace {
 				continue
 			}
-			return CharacterToken{value: s, catCode: catcode.Space}, nil
+			return NewCharacterToken(s, catcode.Space), nil
 		default:
-			return CharacterToken{value: s, catCode: catCode}, nil
+			return NewCharacterToken(s, catCode), nil
 		}
 	}
 }

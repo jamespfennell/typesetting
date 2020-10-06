@@ -17,135 +17,135 @@ func TestTokenizer(t *testing.T) {
 		{
 			"\\a{b}",
 			[]Token{
-				CommandToken{"a"},
-				CharacterToken{"{", catcode.BeginGroup},
-				CharacterToken{"b", catcode.Letter},
-				CharacterToken{"}", catcode.EndGroup},
+				NewCommandToken("a"),
+				NewCharacterToken("{", catcode.BeginGroup),
+				NewCharacterToken("b", catcode.Letter),
+				NewCharacterToken("}", catcode.EndGroup),
 			},
 		},
 		{
 			"\\a b",
 			[]Token{
-				CommandToken{"a"},
-				CharacterToken{"b", catcode.Letter},
+				NewCommandToken("a"),
+				NewCharacterToken("b", catcode.Letter),
 			},
 		},
 		{
 			"\\a  b",
 			[]Token{
-				CommandToken{"a"},
-				CharacterToken{"b", catcode.Letter},
+				NewCommandToken("a"),
+				NewCharacterToken("b", catcode.Letter),
 			},
 		},
 		{
 			"\\a\n b",
 			[]Token{
-				CommandToken{"a"},
-				CharacterToken{"b", catcode.Letter},
+				NewCommandToken("a"),
+				NewCharacterToken("b", catcode.Letter),
 			},
 		},
 		{
 			"\\ABC{D}",
 			[]Token{
-				CommandToken{"ABC"},
-				CharacterToken{"{", catcode.BeginGroup},
-				CharacterToken{"D", catcode.Letter},
-				CharacterToken{"}", catcode.EndGroup},
+				NewCommandToken("ABC"),
+				NewCharacterToken("{", catcode.BeginGroup),
+				NewCharacterToken("D", catcode.Letter),
+				NewCharacterToken("}", catcode.EndGroup),
 			},
 		},
 		{
 			"\\ABC",
 			[]Token{
-				CommandToken{"ABC"},
+				NewCommandToken("ABC"),
 			},
 		},
 		{
 			"\\{{",
 			[]Token{
-				CommandToken{"{"},
-				CharacterToken{"{", catcode.BeginGroup},
+				NewCommandToken("{"),
+				NewCharacterToken("{", catcode.BeginGroup),
 			},
 		},
 		{
 			"A%a comment here\nC",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{"C", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken("C", catcode.Letter),
 			},
 		},
 		{
 			"A%a comment here\n%A second comment\nC",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{"C", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken("C", catcode.Letter),
 			},
 		},
 		{
 			"A%a comment here",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
 			},
 		},
 		{
 			"A%\n B",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A%\n\n B",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CommandToken{"par"},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCommandToken("par"),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"\\A %\nB",
 			[]Token{
-				CommandToken{"A"},
-				CharacterToken{"B", catcode.Letter},
+				NewCommandToken("A"),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A  B",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{" ", catcode.Space},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken(" ", catcode.Space),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A\nB",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{"\n", catcode.Space},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken("\n", catcode.Space),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A \nB",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CharacterToken{" ", catcode.Space},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCharacterToken(" ", catcode.Space),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A\n\nB",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CommandToken{"par"},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCommandToken("par"),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 		{
 			"A\n \nB",
 			[]Token{
-				CharacterToken{"A", catcode.Letter},
-				CommandToken{"par"},
-				CharacterToken{"B", catcode.Letter},
+				NewCharacterToken("A", catcode.Letter),
+				NewCommandToken("par"),
+				NewCharacterToken("B", catcode.Letter),
 			},
 		},
 	}
@@ -163,7 +163,7 @@ func TestTokenizer_IgnoredCharacter(t *testing.T) {
 	m.Set("A", catcode.Ignored)
 	tokenizer := NewTokenizer(strings.NewReader("AB"), &m)
 	expected := []Token{
-		CharacterToken{"B", catcode.Letter},
+		NewCharacterToken("B", catcode.Letter),
 	}
 	verifyAllValidTokens(t, tokenizer, expected)
 }
@@ -172,7 +172,7 @@ func TestTokenizer_InvalidCharacter(t *testing.T) {
 	m := catcode.NewCatCodeMapWithTexDefaults()
 	m.Set("B", catcode.Invalid)
 	tokenizer := NewTokenizer(strings.NewReader("AB"), &m)
-	verifyValidToken(t, tokenizer, CharacterToken{"A", catcode.Letter})
+	verifyValidToken(t, tokenizer, NewCharacterToken("A", catcode.Letter))
 	verifyInvalidToken(t, tokenizer)
 }
 
@@ -183,7 +183,7 @@ func TestTokenizer_NonUtf8Character(t *testing.T) {
 			m := catcode.NewCatCodeMapWithTexDefaults()
 			s := params + string([]byte{0b11000010, 0b00100010})
 			tokenizer := NewTokenizer(strings.NewReader(s), &m)
-			verifyValidToken(t, tokenizer, CharacterToken{"A", catcode.Letter})
+			verifyValidToken(t, tokenizer, NewCharacterToken("A", catcode.Letter))
 			verifyInvalidToken(t, tokenizer)
 		})
 	}
@@ -192,12 +192,12 @@ func TestTokenizer_NonUtf8Character(t *testing.T) {
 func TestTokenizer_ScopeChange(t *testing.T) {
 	m := catcode.NewCatCodeMapWithTexDefaults()
 	tokenizer := NewTokenizer(strings.NewReader("{{{"), &m)
-	verifyValidToken(t, tokenizer, CharacterToken{"{", catcode.BeginGroup})
+	verifyValidToken(t, tokenizer, NewCharacterToken("{", catcode.BeginGroup))
 	m.BeginScope()
 	m.Set("{", catcode.Subscript)
-	verifyValidToken(t, tokenizer, CharacterToken{"{", catcode.Subscript})
+	verifyValidToken(t, tokenizer, NewCharacterToken("{", catcode.Subscript))
 	m.EndScope()
-	verifyValidToken(t, tokenizer, CharacterToken{"{", catcode.BeginGroup})
+	verifyValidToken(t, tokenizer, NewCharacterToken("{", catcode.BeginGroup))
 }
 
 func verifyAllValidTokens(t *testing.T, tokenizer *Tokenizer, expectedTokens []Token) {
@@ -226,8 +226,8 @@ func verifyInvalidToken(t *testing.T, tokenizer *Tokenizer) {
 
 func verifyFinalToken(t *testing.T, tokenizer *Tokenizer) {
 	finalToken, err := tokenizer.NextToken()
-	if finalToken != nil {
-		t.Fatalf("Expected to recieve nil token last but recieved: %v", finalToken)
+	if !finalToken.IsNull() {
+		t.Fatalf("Expected to recieve an null token last but recieved: %v", finalToken)
 	}
 	if err != io.EOF {
 		t.Fatalf("Expected io.EOF error in retriving last token but recieved: %s", err)
