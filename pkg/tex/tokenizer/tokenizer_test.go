@@ -112,7 +112,7 @@ func TestTokenizer(t *testing.T) {
 			"A  B",
 			[]Token{
 				NewCharacterToken("A", catcode.Letter),
-				NewCharacterToken(" ", catcode.Space),
+				NewCharacterToken("  ", catcode.Space),
 				NewCharacterToken("B", catcode.Letter),
 			},
 		},
@@ -128,7 +128,7 @@ func TestTokenizer(t *testing.T) {
 			"A \nB",
 			[]Token{
 				NewCharacterToken("A", catcode.Letter),
-				NewCharacterToken(" ", catcode.Space),
+				NewCharacterToken(" \n", catcode.Space),
 				NewCharacterToken("B", catcode.Letter),
 			},
 		},
@@ -150,7 +150,7 @@ func TestTokenizer(t *testing.T) {
 		},
 	}
 	for _, params := range paramsList {
-		t.Run("", func(t *testing.T) {
+		t.Run(params.input, func(t *testing.T) {
 			m := catcode.NewCatCodeMapWithTexDefaults()
 			tokenizer := NewTokenizer(strings.NewReader(params.input), &m)
 			verifyAllValidTokens(t, tokenizer, params.expectedTokens)
@@ -168,12 +168,36 @@ func TestTokenizer_IgnoredCharacter(t *testing.T) {
 	verifyAllValidTokens(t, tokenizer, expected)
 }
 
+func TestTokenizer_IgnoredCharacterInCommandIsAllowed(t *testing.T) {
+	m := catcode.NewCatCodeMapWithTexDefaults()
+	m.Set("A", catcode.Ignored)
+	tokenizer := NewTokenizer(strings.NewReader("\\A"), &m)
+	expected := []Token{
+		NewCommandToken("A"),
+	}
+	verifyAllValidTokens(t, tokenizer, expected)
+}
+
 func TestTokenizer_InvalidCharacter(t *testing.T) {
 	m := catcode.NewCatCodeMapWithTexDefaults()
 	m.Set("B", catcode.Invalid)
 	tokenizer := NewTokenizer(strings.NewReader("AB"), &m)
 	verifyValidToken(t, tokenizer, NewCharacterToken("A", catcode.Letter))
 	verifyInvalidToken(t, tokenizer)
+}
+
+func TestTokenizer_InvalidCharacterInCommentIsAllowed(t *testing.T) {
+	m := catcode.NewCatCodeMapWithTexDefaults()
+	m.Set("B", catcode.Invalid)
+	tokenizer := NewTokenizer(strings.NewReader("A%B"), &m)
+	verifyAllValidTokens(t, tokenizer, []Token{NewCharacterToken("A", catcode.Letter)})
+}
+
+func TestTokenizer_InvalidCharacterInCommandIsAllowed(t *testing.T) {
+	m := catcode.NewCatCodeMapWithTexDefaults()
+	m.Set("B", catcode.Invalid)
+	tokenizer := NewTokenizer(strings.NewReader("\\B"), &m)
+	verifyAllValidTokens(t, tokenizer, []Token{NewCommandToken("B")})
 }
 
 func TestTokenizer_NonUtf8Character(t *testing.T) {
