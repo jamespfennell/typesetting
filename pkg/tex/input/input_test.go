@@ -1,4 +1,4 @@
-package tokenizer
+package input
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
-	"github.com/jamespfennell/typesetting/pkg/tex/tokenizer"
+	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"os"
 	"strings"
 )
@@ -19,7 +19,7 @@ func main() {
 		os.Exit(2)
 	}
 	m := catcode.NewCatCodeMapWithTexDefaults()
-	t := tokenizer.NewTokenizer(f, &m)
+	t := input.NewTokenizer(f, &m)
 	for token, err := t.NextToken(); err == nil; token, err = t.NextToken() {
 		var b strings.Builder
 		if token.CatCode() < 0 {

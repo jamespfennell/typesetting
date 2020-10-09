@@ -1,4 +1,4 @@
-package tokenizer
+package input
 
 import (
 	"bufio"
