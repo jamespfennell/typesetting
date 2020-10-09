@@ -5,49 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"io"
 	"strings"
 	"unicode"
 )
-
-type Token struct {
-	value   string
-	catCode catcode.CatCode
-}
-
-func (token Token) Value() string {
-	return token.value
-}
-
-func (token Token) IsCommand() bool {
-	return token.catCode == -1
-}
-
-func (token Token) IsNull() bool {
-	return token.catCode == -2
-}
-
-func (token Token) CatCode() catcode.CatCode {
-	return token.catCode
-}
-
-func NewCommandToken(value string) Token {
-	return Token{value: value, catCode: -1}
-}
-
-func NewCharacterToken(value string, code catcode.CatCode) Token {
-	return Token{value: value, catCode: code}
-}
-
-func NewNullToken() Token {
-	return Token{catCode: -2}
-}
 
 type Tokenizer struct {
 	reader                *bufio.Reader
 	catCodeMap            *catcode.Map
 	swallowNextWhitespace bool
 	err                   error
+	inputOver             bool
 }
 
 func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
@@ -71,24 +40,27 @@ func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
 //
 // Because of these processing steps and error cases, this method will never return tokens with codes
 // 0, 5, 9, 14 or 15. This is consistent with Exercise 7.3 of the TeXbook.
-func (tokenizer *Tokenizer) NextToken() (Token, error) {
+func (tokenizer *Tokenizer) NextToken() (token.Token, error) {
 	if tokenizer.err != nil {
-		return NewNullToken(), tokenizer.err
+		return nil, tokenizer.err
 	}
-	token, err := tokenizer.nextTokenInternal()
-	if err == nil {
-		tokenizer.swallowNextWhitespace = token.IsCommand()
+	if tokenizer.inputOver {
+		return nil, nil
 	}
-	return token, err
+	t, err := tokenizer.nextTokenInternal()
+	if err == nil && t != nil {
+		tokenizer.swallowNextWhitespace = t.IsCommand()
+	}
+	return t, err
 }
 
-func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
+func (tokenizer *Tokenizer) nextTokenInternal() (token.Token, error) {
 	for {
 		t, err := tokenizer.NextRawToken()
-		if err != nil {
+		if err != nil || t == nil {
 			return t, err
 		}
-		switch t.catCode {
+		switch t.CatCode() {
 		case catcode.Ignored:
 			continue
 		case catcode.Invalid:
@@ -97,9 +69,9 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 		case catcode.Escape:
 			return tokenizer.readCommand()
 		case catcode.Comment:
-			for t.catCode != catcode.EndOfLine {
+			for t.CatCode() != catcode.EndOfLine {
 				t, err = tokenizer.NextRawToken()
-				if err != nil {
+				if err != nil || t == nil {
 					return t, err
 				}
 			}
@@ -108,30 +80,26 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 		case catcode.Space:
 			fallthrough
 		case catcode.EndOfLine:
-			// We re-use the first token for the composite space token because we want to keep its metadata
-			firstToken := t
 			var b strings.Builder
 			numEndOfLines := 0
-			for t.catCode == catcode.Space || t.catCode == catcode.EndOfLine {
+			for t.CatCode() == catcode.Space || t.CatCode() == catcode.EndOfLine {
 				b.WriteString(t.Value())
-				if t.catCode == catcode.EndOfLine {
+				if t.CatCode() == catcode.EndOfLine {
 					numEndOfLines++
 				}
 				t, err = tokenizer.NextRawToken()
-				if err != nil {
+				if err != nil || t == nil {
 					return t, err
 				}
 			}
 			_ = tokenizer.reader.UnreadRune()
 			if numEndOfLines > 1 {
-				return NewCommandToken("par"), nil
+				return token.NewCommandToken("par"), nil
 			}
 			if tokenizer.swallowNextWhitespace {
 				continue
 			}
-			firstToken.value = b.String()
-			firstToken.catCode = catcode.Space
-			return firstToken, nil
+			return token.NewCharacterToken(b.String(), catcode.Space), nil
 		default:
 			return t, nil
 		}
@@ -146,12 +114,15 @@ func (tokenizer *Tokenizer) nextTokenInternal() (Token, error) {
 // (1) The end of the input stream has been reached, in which case the error will be io.EOF.
 // (2) There is an error retrieving an element from the input stream.
 // (3) The next element in the stream is not a valid UTF-8 character.
-func (tokenizer *Tokenizer) NextRawToken() (Token, error) {
+func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	r, _, err := tokenizer.reader.ReadRune()
 	if err != nil {
+		if err == io.EOF {
+			tokenizer.inputOver = true
+			return nil, nil
+		}
 		tokenizer.err = err
-		// Potentially this is end of input error io.EOF
-		return NewNullToken(), tokenizer.err
+		return nil, tokenizer.err
 	}
 	var c catcode.CatCode
 	s := string(r)
@@ -161,23 +132,23 @@ func (tokenizer *Tokenizer) NextRawToken() (Token, error) {
 	} else {
 		c = tokenizer.catCodeMap.Get(s)
 	}
-	return NewCharacterToken(s, c), tokenizer.err
+	return token.NewCharacterToken(s, c), tokenizer.err
 }
 
-func (tokenizer *Tokenizer) readCommand() (Token, error) {
+func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
 	t, err := tokenizer.NextRawToken()
-	if err != nil {
+	if err != nil || t == nil {
 		return t, err
 	}
 	var b strings.Builder
 	b.WriteString(t.Value())
 	for t.CatCode() == catcode.Letter {
 		t, err = tokenizer.NextRawToken()
-		if err != nil || t.CatCode() != catcode.Letter {
+		if err != nil || t == nil || t.CatCode() != catcode.Letter {
 			_ = tokenizer.reader.UnreadRune()
 			break
 		}
 		b.WriteString(t.Value())
 	}
-	return NewCommandToken(b.String()), nil
+	return token.NewCommandToken(b.String()), nil
 }
