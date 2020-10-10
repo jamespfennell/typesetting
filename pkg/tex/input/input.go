@@ -5,11 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
+	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"io"
+	"os"
 	"strings"
 	"unicode"
 )
+
+// Command implements the \input{} command.
+type Command struct{}
+
+func (Command) Execute(ctx context.Context, list stream.TokenStream) (stream.TokenStream, error) {
+	// convert list to token, probably using ctx.Expand and then ToString
+	return NewTokenizerFromFilePath("tmp/input.tex", ctx.CatCodeMap)
+}
+
+func (Command) IsExpansionCommand() bool {
+	return true
+}
 
 type Tokenizer struct {
 	reader                *bufio.Reader
@@ -17,6 +32,17 @@ type Tokenizer struct {
 	swallowNextWhitespace bool
 	err                   error
 	inputOver             bool
+}
+
+func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map) (stream.TokenStream, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return stream.NewListWithCleanup(
+		NewTokenizer(f, catCodeMap),
+		func() { _ = f.Close() },
+	), nil
 }
 
 func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
