@@ -44,6 +44,18 @@ func (list *sliceBasedList) NextToken() (token.Token, error) {
 	return token, nil
 }
 
+func NewErrorStream(e error) TokenStream {
+	return errorStream{e : e }
+}
+
+type errorStream struct {
+	e error
+}
+
+func (s errorStream) NextToken() (token.Token, error) {
+	return nil, s.e
+}
+
 func NewChainedList(lists ...TokenStream) TokenStream {
 	return &chainedList{lists: lists}
 }

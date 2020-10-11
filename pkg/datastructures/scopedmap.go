@@ -70,6 +70,7 @@ func (scopedMap *ScopedMap) Set(key string, value interface{}) {
 }
 
 // Get retrieves the value of a key.
+// TODO: return interface{}, bool
 func (scopedMap *ScopedMap) Get(key string) interface{} {
 	node := scopedMap.keyToRootNode[key]
 	if node == nil {

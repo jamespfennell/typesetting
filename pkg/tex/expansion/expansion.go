@@ -38,14 +38,13 @@ func (stream *expandingStream) NextToken() (token.Token, error) {
 			return nil, nil
 		}
 		if t.IsCommand() {
-			cmd := stream.ctx.CommandMap.Get(t.Value())
-			if cmd != nil {
-				fmt.Println("Processing command", t.Value())
-				expansionCmd := cmd.(context.ExpansionCommand)
-				cmdOutput, err := expansionCmd(stream.ctx, stream.input)
-				if err != nil {
-					return nil, err
+			cmd, ok := stream.ctx.Registry.GetCommand(t.Value())
+			if ok {
+				expansionCmd, ok := cmd.(CanonicalFunc)
+				if !ok {
+					continue
 				}
+				cmdOutput := expansionCmd(stream.ctx, stream.input)
 				// TODO: probably not good enough to just expand, need to also
 				//  do def stuff and typesetting
 				//  or MAYBE NOT
