@@ -11,37 +11,59 @@ import "github.com/jamespfennell/typesetting/pkg/tex/token"
 type TokenStream interface {
 	// NextToken retrieves the next Token in the TokenStream.
 	NextToken() (token.Token, error)
+
+	PeekToken() (token.Token, error)
+
+}
+
+func NextTokenOp(s TokenStream) (token.Token, error) {
+	return s.NextToken()
+}
+
+func PeekTokenOp(s TokenStream) (token.Token, error) {
+	return s.PeekToken()
 }
 
 func NewSingletonStream(token token.Token) TokenStream {
-	return &singletonList{token: token}
+	return &singletonStream{token: token}
 }
 
-type singletonList struct {
+type singletonStream struct {
 	token token.Token
 }
 
-func (list *singletonList) NextToken() (token.Token, error) {
-	token := list.token
-	list.token = nil
-	return token, nil
+func (s *singletonStream) NextToken() (token.Token, error) {
+	t := s.token
+	s.token = nil
+	return t, nil
+}
+
+func (s *singletonStream) PeekToken() (token.Token, error) {
+	return s.token, nil
 }
 
 func NewSliceStream(tokens []token.Token) TokenStream {
-	return &sliceBasedList{tokens: tokens}
+	return &sliceStream{tokens: tokens}
 }
 
-type sliceBasedList struct {
+type sliceStream struct {
 	tokens []token.Token
 }
 
-func (list *sliceBasedList) NextToken() (token.Token, error) {
-	if len(list.tokens) == 0 {
+func (s *sliceStream) NextToken() (token.Token, error) {
+	if len(s.tokens) == 0 {
 		return nil, nil
 	}
-	token := list.tokens[0]
-	list.tokens = list.tokens[1:]
-	return token, nil
+	t := s.tokens[0]
+	s.tokens = s.tokens[1:]
+	return t, nil
+}
+
+func (s *sliceStream) PeekToken() (token.Token, error) {
+	if len(s.tokens) == 0 {
+		return nil, nil
+	}
+	return s.tokens[0], nil
 }
 
 func NewErrorStream(e error) TokenStream {
@@ -56,15 +78,20 @@ func (s errorStream) NextToken() (token.Token, error) {
 	return nil, s.e
 }
 
-func NewChainedList(lists ...TokenStream) TokenStream {
-	return &chainedList{lists: lists}
+func (s errorStream) PeekToken() (token.Token, error) {
+	return nil, s.e
 }
 
-type chainedList struct {
+/*
+func NewChainedStream(lists ...TokenStream) TokenStream {
+	return &chainedStream{lists: lists}
+}
+
+type chainedStream struct {
 	lists []TokenStream
 }
 
-func (list *chainedList) NextToken() (token.Token, error) {
+func (list *chainedStream) NextToken() (token.Token, error) {
 	for len(list.lists) > 0 {
 		t, err := list.lists[0].NextToken()
 		if err != nil {
@@ -78,44 +105,34 @@ func (list *chainedList) NextToken() (token.Token, error) {
 	}
 	return nil, nil
 }
+ */
 
-func NewObservedList(list TokenStream, observationChan chan<- token.Token) TokenStream {
-	return &observedList{list: list, observationChan: observationChan}
+
+func NewStreamWithCleanup(list TokenStream, cleanupFunc func()) TokenStream {
+	return &streamWithCleanup{list: list, cleanupFunc: cleanupFunc}
 }
 
-type observedList struct {
-	list            TokenStream
-	observationChan chan<- token.Token
-}
-
-func (list *observedList) NextToken() (token.Token, error) {
-	token, err := list.list.NextToken()
-	if err != nil || token == nil {
-		close(list.observationChan)
-	} else {
-		list.observationChan <- token
-	}
-	return token, err
-}
-
-func NewListWithCleanup(list TokenStream, cleanupFunc func()) TokenStream {
-	return &listWithCleanup{list: list, cleanupFunc: cleanupFunc}
-}
-
-type listWithCleanup struct {
+type streamWithCleanup struct {
 	list        TokenStream
 	cleanupFunc func()
 	cleanedUp   bool
 }
 
-func (list *listWithCleanup) NextToken() (token.Token, error) {
-	if list.cleanedUp {
+func (s *streamWithCleanup) NextToken() (token.Token, error) {
+	if s.cleanedUp {
 		return nil, nil
 	}
-	token, err := list.list.NextToken()
-	if err != nil || token == nil {
-		list.cleanupFunc()
-		list.cleanedUp = true
+	t, err := s.list.NextToken()
+	if err != nil || t == nil {
+		s.cleanupFunc()
+		s.cleanedUp = true
 	}
-	return token, err
+	return t, err
+}
+
+func (s *streamWithCleanup) PeekToken() (token.Token, error) {
+	if s.cleanedUp {
+		return nil, nil
+	}
+	return s.list.PeekToken()
 }

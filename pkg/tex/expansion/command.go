@@ -22,6 +22,7 @@ func Register(registry command.Registry, name string, rawF interface{}) {
 
 type Func000 func() []token.Token
 type Func111 func(ctx context.Context, s stream.TokenStream) ([]token.Token, error)
+type Func112 func(ctx context.Context, s stream.TokenStream) stream.TokenStream
 
 func (f Func000) Canonicalize() CanonicalFunc {
 	return func(ctx context.Context, s stream.TokenStream) stream.TokenStream {
@@ -39,6 +40,10 @@ func (f Func111) Canonicalize() CanonicalFunc {
 	}
 }
 
+func (f Func112) Canonicalize() CanonicalFunc {
+	return CanonicalFunc(f)
+}
+
 func castToFunc(rawF interface{}) Func {
 	switch castF := rawF.(type) {
 	case Func:
@@ -47,6 +52,8 @@ func castToFunc(rawF interface{}) Func {
 		return Func000(castF)
 	case func(ctx context.Context, s stream.TokenStream) ([]token.Token, error):
 		return Func111(castF)
+	case func(ctx context.Context, s stream.TokenStream) stream.TokenStream:
+		return Func112(castF)
 	}
 	panic(
 		fmt.Sprintf(

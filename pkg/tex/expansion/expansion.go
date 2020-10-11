@@ -18,56 +18,42 @@ type expandingStream struct {
 }
 
 // TODO tests and then clean up
-func (stream *expandingStream) NextToken() (token.Token, error) {
+func (s *expandingStream) NextToken() (token.Token, error) {
+	return s.nextOrPeek(stream.NextTokenOp)
+}
+
+func (s *expandingStream) PeekToken() (token.Token, error) {
+	return s.nextOrPeek(stream.PeekTokenOp)
+}
+
+func (s *expandingStream) nextOrPeek(op func(stream.TokenStream) (token.Token, error)) (token.Token, error) {
 	for {
-		if stream.cmdOutput != nil {
-			t, err := stream.cmdOutput.NextToken()
-			if err != nil {
+		if s.cmdOutput != nil {
+			t, err := op(s.cmdOutput)
+			if err != nil || t != nil {
 				return t, err
 			}
-			if t != nil {
-				return t, nil
-			}
-			stream.cmdOutput = nil
+			s.cmdOutput = nil
 		}
-		t, err := stream.input.NextToken()
-		if err != nil {
+		t, err := op(s.input)
+		if err != nil || t == nil {
 			return t, err
 		}
-		if t == nil {
-			return nil, nil
-		}
-		if t.IsCommand() {
-			cmd, ok := stream.ctx.Registry.GetCommand(t.Value())
-			if ok {
-				expansionCmd, ok := cmd.(CanonicalFunc)
-				if !ok {
-					continue
-				}
-				cmdOutput := expansionCmd(stream.ctx, stream.input)
-				// TODO: probably not good enough to just expand, need to also
-				//  do def stuff and typesetting
-				//  or MAYBE NOT
-				// Definitely not. The whole point of the context is that downstream information
-				// gets back up
-				// Note could also implement without recursion using a stack of streams.
-				// The tricky part is ensuring commands on the stack get the right input
-				// Would probably need a reverse chain
-				// AKA a stack of streams
-				stream.cmdOutput = Expand(stream.ctx, cmdOutput)
-				continue
-			}
-			fmt.Println("Unknown command, passing for the moment", t.Value())
-		}
-		return t, nil
-		// If it is a command token, place its on the cmdOutput
-		// And then feed it input from the input
-		// When the output has ended, delete it and start reading from the input stream again
-		/*
-			if stream.ctx.TokenizerChannel != nil {
-				stream.ctx.TokenizerChannel <- t
-			}
+		if !t.IsCommand() {
 			return t, nil
-		*/
+		}
+		cmd, ok := s.ctx.Registry.GetCommand(t.Value())
+		if !ok {
+			fmt.Println("Error: unknown command", t.Value())
+			return t, nil
+		}
+		expansionCmd, ok := cmd.(CanonicalFunc)
+		if !ok {
+			fmt.Println("Skipping non-expansion command", t.Value())
+			return t, nil
+		}
+		cmdOutput := expansionCmd(s.ctx, s.input)
+		s.cmdOutput = Expand(s.ctx, cmdOutput)
+		continue
 	}
 }

@@ -33,13 +33,11 @@ func runInternal(filePath string) error {
 		Registry: m2,
 		//TokenizerChannel: tokenizationChannel,
 	}
+	expansion.Register(ctx.Registry, "input", library.Input)
 	expansion.Register(ctx.Registry, "string", library.String)
 	expansion.Register(ctx.Registry, "year", library.Year)
 
-	tokenList, err := input.NewTokenizerFromFilePath(filePath, &m1)
-	if err != nil {
-		return err
-	}
+	tokenList:= input.NewTokenizerFromFilePath(filePath, &m1)
 	expandedList := expansion.Expand(ctx, tokenList)
 
 	for {

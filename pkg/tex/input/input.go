@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
-	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"io"
@@ -14,35 +13,24 @@ import (
 	"unicode"
 )
 
-// Command implements the \input{} command.
-type Command struct{}
-
-func (Command) Execute(ctx context.Context, list stream.TokenStream) (stream.TokenStream, error) {
-	// convert list to token, probably using ctx.Expand and then ToString
-	return NewTokenizerFromFilePath("tmp/input.tex", ctx.CatCodeMap)
-}
-
-func (Command) IsExpansionCommand() bool {
-	return true
-}
-
 type Tokenizer struct {
 	reader                *bufio.Reader
 	catCodeMap            *catcode.Map
+	buffer 				  token.Token
 	swallowNextWhitespace bool
 	err                   error
 	inputOver             bool
 }
 
-func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map) (stream.TokenStream, error) {
+func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map) stream.TokenStream {
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return stream.NewErrorStream(err)
 	}
-	return stream.NewListWithCleanup(
+	return stream.NewStreamWithCleanup(
 		NewTokenizer(f, catCodeMap),
 		func() { _ = f.Close() },
-	), nil
+	)
 }
 
 func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
@@ -73,10 +61,21 @@ func (tokenizer *Tokenizer) NextToken() (token.Token, error) {
 	if tokenizer.inputOver {
 		return nil, nil
 	}
+	if tokenizer.buffer != nil {
+		t := tokenizer.buffer
+		tokenizer.buffer = nil
+		return t, nil
+	}
 	t, err := tokenizer.nextTokenInternal()
 	if err == nil && t != nil {
 		tokenizer.swallowNextWhitespace = t.IsCommand()
 	}
+	return t, err
+}
+
+func (tokenizer *Tokenizer) PeekToken() (token.Token, error) {
+	t, err := tokenizer.NextToken()
+	tokenizer.buffer = t
 	return t, err
 }
 
