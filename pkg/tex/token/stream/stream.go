@@ -13,7 +13,14 @@ type TokenStream interface {
 	NextToken() (token.Token, error)
 
 	PeekToken() (token.Token, error)
+}
 
+type Op func(s TokenStream) (token.Token, error)
+
+type TokenStreamWithOp interface {
+	TokenStream
+
+	PerformOp(Op) (token.Token, error)
 }
 
 func NextTokenOp(s TokenStream) (token.Token, error) {
@@ -22,24 +29,6 @@ func NextTokenOp(s TokenStream) (token.Token, error) {
 
 func PeekTokenOp(s TokenStream) (token.Token, error) {
 	return s.PeekToken()
-}
-
-func NewSingletonStream(token token.Token) TokenStream {
-	return &singletonStream{token: token}
-}
-
-type singletonStream struct {
-	token token.Token
-}
-
-func (s *singletonStream) NextToken() (token.Token, error) {
-	t := s.token
-	s.token = nil
-	return t, nil
-}
-
-func (s *singletonStream) PeekToken() (token.Token, error) {
-	return s.token, nil
 }
 
 func NewSliceStream(tokens []token.Token) TokenStream {
@@ -67,7 +56,7 @@ func (s *sliceStream) PeekToken() (token.Token, error) {
 }
 
 func NewErrorStream(e error) TokenStream {
-	return errorStream{e : e }
+	return errorStream{e: e}
 }
 
 type errorStream struct {
@@ -82,31 +71,43 @@ func (s errorStream) PeekToken() (token.Token, error) {
 	return nil, s.e
 }
 
-/*
-func NewChainedStream(lists ...TokenStream) TokenStream {
-	return &chainedStream{lists: lists}
+type StackStream struct {
+	stack []TokenStream
 }
 
-type chainedStream struct {
-	lists []TokenStream
+func NewStackStream() *StackStream {
+	return &StackStream{}
 }
 
-func (list *chainedStream) NextToken() (token.Token, error) {
-	for len(list.lists) > 0 {
-		t, err := list.lists[0].NextToken()
-		if err != nil {
+func (s *StackStream) Snapshot() *StackStream {
+	c := *s
+	return &c
+}
+
+func (s *StackStream) Push(ts TokenStream) {
+	s.stack = append(s.stack, ts)
+}
+
+func (s *StackStream) NextToken() (token.Token, error) {
+	return s.PerformOp(NextTokenOp)
+}
+
+func (s *StackStream) PeekToken() (token.Token, error) {
+	return s.PerformOp(PeekTokenOp)
+}
+
+func (s *StackStream) PerformOp(op Op) (token.Token, error) {
+	for {
+		if len(s.stack) == 0 {
+			return nil, nil
+		}
+		t, err := op(s.stack[len(s.stack)-1])
+		if err != nil || t != nil {
 			return t, err
 		}
-		if t == nil {
-			list.lists = list.lists[1:]
-			continue
-		}
-		return t, err
+		s.stack = s.stack[:len(s.stack)-1]
 	}
-	return nil, nil
 }
- */
-
 
 func NewStreamWithCleanup(list TokenStream, cleanupFunc func()) TokenStream {
 	return &streamWithCleanup{list: list, cleanupFunc: cleanupFunc}
@@ -134,5 +135,5 @@ func (s *streamWithCleanup) PeekToken() (token.Token, error) {
 	if s.cleanedUp {
 		return nil, nil
 	}
-	return s.list.PeekToken()
+	return s.list.PeekToken() // TODO: what if the stream is over?
 }

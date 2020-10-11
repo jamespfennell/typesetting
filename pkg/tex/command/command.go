@@ -5,8 +5,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/datastructures"
 )
 
-type Command interface {}
-
+type Command interface{}
 
 type Registry struct {
 	scopedMap datastructures.ScopedMap

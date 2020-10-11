@@ -21,7 +21,6 @@ func Run(filePath string) {
 	}
 }
 
-
 func runInternal(filePath string) error {
 	m1 := catcode.NewCatCodeMapWithTexDefaults() // TODO: return references to maps instead
 	m2 := command.NewRegistry()
@@ -30,14 +29,14 @@ func runInternal(filePath string) error {
 	// go outputTokenization(tokenizationChannel)
 	ctx := context.Context{
 		CatCodeMap: &m1,
-		Registry: m2,
+		Registry:   m2,
 		//TokenizerChannel: tokenizationChannel,
 	}
 	expansion.Register(ctx.Registry, "input", library.Input)
 	expansion.Register(ctx.Registry, "string", library.String)
 	expansion.Register(ctx.Registry, "year", library.Year)
 
-	tokenList:= input.NewTokenizerFromFilePath(filePath, &m1)
+	tokenList := input.NewTokenizerFromFilePath(filePath, &m1)
 	expandedList := expansion.Expand(ctx, tokenList)
 
 	for {

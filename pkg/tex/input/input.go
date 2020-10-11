@@ -16,7 +16,7 @@ import (
 type Tokenizer struct {
 	reader                *bufio.Reader
 	catCodeMap            *catcode.Map
-	buffer 				  token.Token
+	buffer                token.Token
 	swallowNextWhitespace bool
 	err                   error
 	inputOver             bool

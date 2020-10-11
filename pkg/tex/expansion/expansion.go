@@ -7,40 +7,30 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 )
 
-func Expand(ctx context.Context, list stream.TokenStream) stream.TokenStream {
-	return &expandingStream{ctx: ctx, input: list}
+func Expand(ctx context.Context, s stream.TokenStream) stream.TokenStream {
+	stack := stream.NewStackStream()
+	stack.Push(s)
+	return &expansionStream{ctx: ctx, stack: stack}
 }
 
-type expandingStream struct {
-	ctx       context.Context
-	input     stream.TokenStream
-	cmdOutput stream.TokenStream // TODO: make the type of this *expandingStream!
+type expansionStream struct {
+	ctx   context.Context
+	stack *stream.StackStream
 }
 
-// TODO tests and then clean up
-func (s *expandingStream) NextToken() (token.Token, error) {
-	return s.nextOrPeek(stream.NextTokenOp)
+func (s *expansionStream) NextToken() (token.Token, error) {
+	return s.PerformOp(stream.NextTokenOp)
 }
 
-func (s *expandingStream) PeekToken() (token.Token, error) {
-	return s.nextOrPeek(stream.PeekTokenOp)
+func (s *expansionStream) PeekToken() (token.Token, error) {
+	return s.PerformOp(stream.PeekTokenOp)
 }
 
-func (s *expandingStream) nextOrPeek(op func(stream.TokenStream) (token.Token, error)) (token.Token, error) {
+func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 	for {
-		if s.cmdOutput != nil {
-			t, err := op(s.cmdOutput)
-			if err != nil || t != nil {
-				return t, err
-			}
-			s.cmdOutput = nil
-		}
-		t, err := op(s.input)
-		if err != nil || t == nil {
+		t, err := s.stack.PerformOp(op)
+		if err != nil || t == nil || !t.IsCommand() {
 			return t, err
-		}
-		if !t.IsCommand() {
-			return t, nil
 		}
 		cmd, ok := s.ctx.Registry.GetCommand(t.Value())
 		if !ok {
@@ -52,8 +42,6 @@ func (s *expandingStream) nextOrPeek(op func(stream.TokenStream) (token.Token, e
 			fmt.Println("Skipping non-expansion command", t.Value())
 			return t, nil
 		}
-		cmdOutput := expansionCmd(s.ctx, s.input)
-		s.cmdOutput = Expand(s.ctx, cmdOutput)
-		continue
+		s.stack.Push(expansionCmd(s.ctx, s.stack.Snapshot()))
 	}
 }
