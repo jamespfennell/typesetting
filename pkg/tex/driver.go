@@ -3,7 +3,6 @@ package tex
 import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
-	"github.com/jamespfennell/typesetting/pkg/tex/command"
 	"github.com/jamespfennell/typesetting/pkg/tex/command/library"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
@@ -22,21 +21,13 @@ func Run(filePath string) {
 }
 
 func runInternal(filePath string) error {
-	m1 := catcode.NewCatCodeMapWithTexDefaults() // TODO: return references to maps instead
-	m2 := command.NewRegistry()
+	ctx := context.NewContext()
+	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
+	expansion.Register(&ctx.Registry, "input", library.Input)
+	expansion.Register(&ctx.Registry, "string", library.String)
+	expansion.Register(&ctx.Registry, "year", library.Year)
 
-	// tokenizationChannel := make(chan token.Token)
-	// go outputTokenization(tokenizationChannel)
-	ctx := context.Context{
-		CatCodeMap: &m1,
-		Registry:   m2,
-		//TokenizerChannel: tokenizationChannel,
-	}
-	expansion.Register(ctx.Registry, "input", library.Input)
-	expansion.Register(ctx.Registry, "string", library.String)
-	expansion.Register(ctx.Registry, "year", library.Year)
-
-	tokenList := input.NewTokenizerFromFilePath(filePath, &m1)
+	tokenList := input.NewTokenizerFromFilePath(filePath, &ctx.CatCodeMap)
 	expandedList := expansion.Expand(ctx, tokenList)
 
 	for {

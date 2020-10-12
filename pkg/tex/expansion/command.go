@@ -9,36 +9,43 @@ import (
 )
 
 // CanonicalFunc is a command.Command invoked during the expansion process.
-type CanonicalFunc func(ctx context.Context, s stream.TokenStream) stream.TokenStream
+type CanonicalFunc func(ctx *context.Context, s stream.TokenStream) stream.TokenStream
 
 // Func represents a function or other type that can be canonicalized to expansion CanonicalFunc
 type Func interface {
 	Canonicalize() CanonicalFunc
 }
 
-func Register(registry command.Registry, name string, rawF interface{}) {
+func Register(registry *command.Registry, name string, rawF interface{}) {
 	registry.SetCommand(name, castToFunc(rawF).Canonicalize())
 }
 
 type Func000 func() []token.Token
+type Func002 func() stream.TokenStream
 type Func010 func(s stream.TokenStream) []token.Token
-type Func111 func(ctx context.Context, s stream.TokenStream) ([]token.Token, error)
-type Func112 func(ctx context.Context, s stream.TokenStream) stream.TokenStream
+type Func111 func(ctx *context.Context, s stream.TokenStream) ([]token.Token, error)
+type Func112 func(ctx *context.Context, s stream.TokenStream) stream.TokenStream
 
 func (f Func000) Canonicalize() CanonicalFunc {
-	return func(ctx context.Context, s stream.TokenStream) stream.TokenStream {
+	return func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 		return stream.NewSliceStream(f())
 	}
 }
 
+func (f Func002) Canonicalize() CanonicalFunc {
+	return func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+		return f()
+	}
+}
+
 func (f Func010) Canonicalize() CanonicalFunc {
-	return func(ctx context.Context, s stream.TokenStream) stream.TokenStream {
+	return func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 		return stream.NewSliceStream(f(s))
 	}
 }
 
 func (f Func111) Canonicalize() CanonicalFunc {
-	return func(ctx context.Context, s stream.TokenStream) stream.TokenStream {
+	return func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 		slice, err := f(ctx, s)
 		if err != nil {
 			return stream.NewErrorStream(err)
@@ -57,11 +64,13 @@ func castToFunc(rawF interface{}) Func {
 		return castF
 	case func() []token.Token:
 		return Func000(castF)
+	case func() stream.TokenStream:
+		return Func002(castF)
 	case func(s stream.TokenStream) []token.Token:
 		return Func010(castF)
-	case func(ctx context.Context, s stream.TokenStream) ([]token.Token, error):
+	case func(ctx *context.Context, s stream.TokenStream) ([]token.Token, error):
 		return Func111(castF)
-	case func(ctx context.Context, s stream.TokenStream) stream.TokenStream:
+	case func(ctx *context.Context, s stream.TokenStream) stream.TokenStream:
 		return Func112(castF)
 	}
 	panic(

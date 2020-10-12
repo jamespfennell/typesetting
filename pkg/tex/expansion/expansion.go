@@ -7,14 +7,14 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 )
 
-func Expand(ctx context.Context, s stream.TokenStream) stream.TokenStream {
+func Expand(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 	stack := stream.NewStackStream()
 	stack.Push(s)
 	return &expansionStream{ctx: ctx, stack: stack}
 }
 
 type expansionStream struct {
-	ctx   context.Context
+	ctx   *context.Context
 	stack *stream.StackStream
 }
 

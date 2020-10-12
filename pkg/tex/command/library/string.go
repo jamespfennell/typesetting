@@ -7,7 +7,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 )
 
-func String(ctx context.Context, tokenStream stream.TokenStream) ([]token.Token, error) {
+func String(ctx *context.Context, tokenStream stream.TokenStream) ([]token.Token, error) {
 	t, err := tokenStream.NextToken()
 	if err != nil || t == nil {
 		return nil, err
@@ -17,7 +17,7 @@ func String(ctx context.Context, tokenStream stream.TokenStream) ([]token.Token,
 	}
 	// TODO: we know the capacity, use it
 	tokens := []token.Token{
-		// TODO: there is a register for
+		// TODO: there is a register that stores the command token
 		token.NewCharacterToken("\\", catcode.Other),
 	}
 	for _, c := range t.Value() {
