@@ -1,7 +1,6 @@
 package input
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
@@ -14,7 +13,7 @@ import (
 )
 
 type Tokenizer struct {
-	reader                *bufio.Reader
+	reader                *Reader //bufio.Reader
 	catCodeMap            *catcode.Map
 	buffer                token.Token
 	swallowNextWhitespace bool
@@ -35,7 +34,7 @@ func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map) stream.T
 
 func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
 	return &Tokenizer{
-		reader:     bufio.NewReader(input),
+		reader:     NewReader(input), // bufio.NewReader(input),
 		catCodeMap: catCodeMap,
 	}
 }
@@ -119,12 +118,12 @@ func (tokenizer *Tokenizer) nextTokenInternal() (token.Token, error) {
 			}
 			_ = tokenizer.reader.UnreadRune()
 			if numEndOfLines > 1 {
-				return token.NewCommandToken("par"), nil
+				return token.NewCommandToken("par", nil), nil
 			}
 			if tokenizer.swallowNextWhitespace {
 				continue
 			}
-			return token.NewCharacterToken(b.String(), catcode.Space), nil
+			return token.NewCharacterToken(b.String(), catcode.Space, nil), nil
 		default:
 			return t, nil
 		}
@@ -157,10 +156,18 @@ func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	} else {
 		c = tokenizer.catCodeMap.Get(s)
 	}
-	return token.NewCharacterToken(s, c), tokenizer.err
+	lineIndex, runeIndex := tokenizer.reader.Coordinates()
+	source := ReaderSource{
+		reader: tokenizer.reader,
+		lineIndex: lineIndex,
+		startingRuneIndex: runeIndex,
+		endingRuneIndex: runeIndex,
+	}
+	return token.NewCharacterToken(s, c, source), tokenizer.err
 }
 
 func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
+	lineIndex, runeIndex := tokenizer.reader.Coordinates()
 	t, err := tokenizer.NextRawToken()
 	if err != nil || t == nil {
 		return t, err
@@ -175,5 +182,39 @@ func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
 		}
 		b.WriteString(t.Value())
 	}
-	return token.NewCommandToken(b.String()), nil
+	value := b.String()
+	source := ReaderSource{
+		reader: tokenizer.reader,
+		lineIndex: lineIndex,
+		startingRuneIndex: runeIndex,
+		endingRuneIndex: runeIndex + len(value) - 1,
+	}
+	return token.NewCommandToken(b.String(), source), nil
+}
+
+type ReaderSource struct {
+	reader    *Reader
+	startingRuneIndex int
+	endingRuneIndex int
+	lineIndex int
+}
+
+func (source ReaderSource) String() string {
+	var b strings.Builder
+	b.WriteString(
+		fmt.Sprintf(
+			"In file \"input.tex\", line %d, char %d:\n",
+			source.lineIndex + 1 ,
+			source.startingRuneIndex + 1,
+			),
+		)
+	line, ok := source.reader.pastLines.Get(source.lineIndex)
+	if ok {
+		b.WriteString(">  ")
+		b.WriteString(line)
+		b.WriteString("\n")
+		b.WriteString(strings.Repeat(" ", source.startingRuneIndex + 3))
+		b.WriteString(strings.Repeat("^", source.endingRuneIndex - source.startingRuneIndex + 2))
+	}
+	return b.String()
 }

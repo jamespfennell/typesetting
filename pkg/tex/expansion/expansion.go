@@ -5,6 +5,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"os"
 )
 
 func Expand(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
@@ -34,8 +35,12 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 		}
 		cmd, ok := s.ctx.Registry.GetCommand(t.Value())
 		if !ok {
-			fmt.Println("Error: unknown command", t.Value())
-			return t, nil
+			fmt.Printf("Undefined control sequence \\%s\n", t.Value())
+			if t.Source() != nil {
+				fmt.Println(t.Source().String())
+			}
+			os.Exit(1)
+			// return t, nil
 		}
 		expansionCmd, ok := cmd.(CanonicalFunc)
 		if !ok {

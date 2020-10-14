@@ -2,15 +2,21 @@ package token
 
 import "github.com/jamespfennell/typesetting/pkg/tex/catcode"
 
+type Source interface {
+	String() string
+}
+
 type Token interface {
 	Value() string
 	CatCode() catcode.CatCode
 	IsCommand() bool
+	Source() Source
 }
 
 type characterToken struct {
 	value   string
 	catCode catcode.CatCode
+	source Source
 }
 
 func (token characterToken) Value() string {
@@ -25,10 +31,14 @@ func (token characterToken) CatCode() catcode.CatCode {
 	return token.catCode
 }
 
-func NewCommandToken(value string) Token {
-	return characterToken{value: value, catCode: -1}
+func (token characterToken) Source() Source {
+	return token.source
 }
 
-func NewCharacterToken(value string, code catcode.CatCode) Token {
-	return characterToken{value: value, catCode: code}
+func NewCommandToken(value string, source Source) Token {
+	return characterToken{value: value, catCode: -1, source: source}
+}
+
+func NewCharacterToken(value string, code catcode.CatCode, source Source) Token {
+	return characterToken{value: value, catCode: code, source: source}
 }

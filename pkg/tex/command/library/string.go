@@ -18,11 +18,11 @@ func String(ctx *context.Context, tokenStream stream.TokenStream) ([]token.Token
 	// TODO: we know the capacity, use it
 	tokens := []token.Token{
 		// TODO: there is a register that stores the command token
-		token.NewCharacterToken("\\", catcode.Other),
+		token.NewCharacterToken("\\", catcode.Other, nil), // TODO: source
 	}
 	for _, c := range t.Value() {
 		// TODO: space should have catcode space apparently.
-		tokens = append(tokens, token.NewCharacterToken(string(c), catcode.Other))
+		tokens = append(tokens, token.NewCharacterToken(string(c), catcode.Other, nil))
 	}
 	return tokens, nil
 }
