@@ -1,11 +1,11 @@
 package expansion
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
-	"os"
 )
 
 func Expand(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
@@ -35,12 +35,7 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 		}
 		cmd, ok := s.ctx.Registry.GetCommand(t.Value())
 		if !ok {
-			fmt.Printf("Undefined control sequence \\%s\n", t.Value())
-			if t.Source() != nil {
-				fmt.Println(t.Source().String())
-			}
-			os.Exit(1)
-			// return t, nil
+			return t, NewUndefinedControlSequenceError(t)
 		}
 		expansionCmd, ok := cmd.(CanonicalFunc)
 		if !ok {
@@ -49,4 +44,12 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 		}
 		s.stack.Push(expansionCmd(s.ctx, s.stack.Snapshot()))
 	}
+}
+
+func NewUndefinedControlSequenceError(t token.Token) error {
+	m := fmt.Sprintf("Undefined control sequence \\%s\n", t.Value())
+	if t.Source() != nil {
+		m += t.Source().String()
+	}
+	return errors.New(m)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/input"
+	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"os"
 	"strings"
@@ -20,6 +21,7 @@ func Run(filePath string) {
 	}
 }
 
+
 func runInternal(filePath string) error {
 	ctx := context.NewContext()
 	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
@@ -27,7 +29,14 @@ func runInternal(filePath string) error {
 	expansion.Register(&ctx.Registry, "string", library.String)
 	expansion.Register(&ctx.Registry, "year", library.Year)
 
-	tokenList := input.NewTokenizerFromFilePath(filePath, &ctx.CatCodeMap)
+	// TODO:
+	//  (1) pass the sender as an input argument
+	//  (2) have it created it in the cmd code. Also, either have NullSender() or nil
+	//  (3) create a receiver for the expander too
+	sender, receiver := logging.NewTokenizerLogPair()
+	go receiver.Run()
+	defer sender.Close()
+	tokenList := input.NewTokenizerFromFilePath(filePath, &ctx.CatCodeMap, &sender)
 	expandedList := expansion.Expand(ctx, tokenList)
 
 	for {
@@ -38,7 +47,7 @@ func runInternal(filePath string) error {
 		if t == nil {
 			return nil
 		}
-		fmt.Println(t)
+		// fmt.Println(t)
 	}
 }
 

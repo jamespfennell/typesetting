@@ -11,5 +11,6 @@ func Input(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
-	return input.NewTokenizerFromFilePath(filePath, &ctx.CatCodeMap)
+	// TODO: pass in the token logger
+	return input.NewTokenizerFromFilePath(filePath, &ctx.CatCodeMap, nil)
 }

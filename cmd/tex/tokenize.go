@@ -19,7 +19,7 @@ func main() {
 		os.Exit(2)
 	}
 	m := catcode.NewCatCodeMapWithTexDefaults()
-	t := input.NewTokenizer(f, &m)
+	t := input.NewTokenizer(f, &m, nil)
 	for token, err := t.NextToken(); err == nil; token, err = t.NextToken() {
 		var b strings.Builder
 		if token.CatCode() < 0 {

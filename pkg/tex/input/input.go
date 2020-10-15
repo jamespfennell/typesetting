@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"io"
@@ -15,27 +16,29 @@ import (
 type Tokenizer struct {
 	reader                *Reader //bufio.Reader
 	catCodeMap            *catcode.Map
+	logger 				  *logging.LogSender
 	buffer                token.Token
 	swallowNextWhitespace bool
 	err                   error
 	inputOver             bool
 }
 
-func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map) stream.TokenStream {
+func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map, logger *logging.LogSender) stream.TokenStream {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
 	return stream.NewStreamWithCleanup(
-		NewTokenizer(f, catCodeMap),
+		NewTokenizer(f, catCodeMap, logger),
 		func() { _ = f.Close() },
 	)
 }
 
-func NewTokenizer(input io.Reader, catCodeMap *catcode.Map) *Tokenizer {
+func NewTokenizer(input io.Reader, catCodeMap *catcode.Map, logger *logging.LogSender) *Tokenizer {
 	return &Tokenizer{
-		reader:     NewReader(input), // bufio.NewReader(input),
+		reader:     NewReader(input),
 		catCodeMap: catCodeMap,
+		logger: logger,
 	}
 }
 
@@ -68,6 +71,9 @@ func (tokenizer *Tokenizer) NextToken() (token.Token, error) {
 	t, err := tokenizer.nextTokenInternal()
 	if err == nil && t != nil {
 		tokenizer.swallowNextWhitespace = t.IsCommand()
+	}
+	if tokenizer.logger != nil {
+		tokenizer.logger.SendToken(t, err)
 	}
 	return t, err
 }
