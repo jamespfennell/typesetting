@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex"
+	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"os"
@@ -26,7 +27,7 @@ func main() {
 	case "expand":
 		sender, receiver := logging.NewLogPair()
 		defer sender.Close()
-		go input.TokenizerWriter(receiver)
+		go expansion.Writer(receiver)
 		ctx.ExpansionLog = sender
 	}
 

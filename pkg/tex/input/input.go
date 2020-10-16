@@ -114,7 +114,9 @@ func (tokenizer *Tokenizer) nextTokenInternal() (token.Token, error) {
 		case catcode.EndOfLine:
 			var b strings.Builder
 			numEndOfLines := 0
+			var source token.Source
 			for t.CatCode() == catcode.Space || t.CatCode() == catcode.EndOfLine {
+				source = t.Source()
 				b.WriteString(t.Value())
 				if t.CatCode() == catcode.EndOfLine {
 					numEndOfLines++
@@ -126,12 +128,12 @@ func (tokenizer *Tokenizer) nextTokenInternal() (token.Token, error) {
 			}
 			_ = tokenizer.reader.UnreadRune()
 			if numEndOfLines > 1 {
-				return token.NewCommandToken("par", nil), nil
+				return token.NewCommandToken("par", source), nil
 			}
 			if tokenizer.swallowNextWhitespace {
 				continue
 			}
-			return token.NewCharacterToken(b.String(), catcode.Space, nil), nil
+			return token.NewCharacterToken(b.String(), catcode.Space, source), nil
 		default:
 			return t, nil
 		}
@@ -167,7 +169,7 @@ func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	lineIndex, runeIndex := tokenizer.reader.Coordinates()
 	source := ReaderSource{
 		reader:            tokenizer.reader,
-		lineIndex:         lineIndex,
+		LineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
 		endingRuneIndex:   runeIndex,
 	}
@@ -193,7 +195,7 @@ func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
 	value := b.String()
 	source := ReaderSource{
 		reader:            tokenizer.reader,
-		lineIndex:         lineIndex,
+		LineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
 		endingRuneIndex:   runeIndex + len(value) - 1,
 	}
@@ -204,7 +206,7 @@ type ReaderSource struct {
 	reader            *Reader
 	startingRuneIndex int
 	endingRuneIndex   int
-	lineIndex         int
+	LineIndex         int
 }
 
 func (source ReaderSource) String() string {
@@ -212,11 +214,11 @@ func (source ReaderSource) String() string {
 	b.WriteString(
 		fmt.Sprintf(
 			"In file \"input.tex\", line %d, char %d:\n",
-			source.lineIndex+1,
+			source.LineIndex+1,
 			source.startingRuneIndex+1,
 		),
 	)
-	line, ok := source.reader.pastLines.Get(source.lineIndex)
+	line, ok := source.reader.pastLines.Get(source.LineIndex)
 	if ok {
 		b.WriteString(">  ")
 		b.WriteString(line)
