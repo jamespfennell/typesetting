@@ -16,7 +16,7 @@ type Token interface {
 type characterToken struct {
 	value   string
 	catCode catcode.CatCode
-	source Source
+	source  Source
 }
 
 func (token characterToken) Value() string {

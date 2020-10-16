@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
@@ -16,29 +17,30 @@ import (
 type Tokenizer struct {
 	reader                *Reader //bufio.Reader
 	catCodeMap            *catcode.Map
-	logger 				  *logging.LogSender
+	logger                *logging.LogSender
 	buffer                token.Token
 	swallowNextWhitespace bool
 	err                   error
 	inputOver             bool
 }
 
-func NewTokenizerFromFilePath(filePath string, catCodeMap *catcode.Map, logger *logging.LogSender) stream.TokenStream {
+func NewTokenizerFromFilePath(ctx *context.Context, filePath string) stream.TokenStream {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
+	ctx.TokenizerLog.SendComment("Reading file: " + filePath)
 	return stream.NewStreamWithCleanup(
-		NewTokenizer(f, catCodeMap, logger),
+		NewTokenizer(ctx, f),
 		func() { _ = f.Close() },
 	)
 }
 
-func NewTokenizer(input io.Reader, catCodeMap *catcode.Map, logger *logging.LogSender) *Tokenizer {
+func NewTokenizer(ctx *context.Context, input io.Reader) *Tokenizer {
 	return &Tokenizer{
 		reader:     NewReader(input),
-		catCodeMap: catCodeMap,
-		logger: logger,
+		catCodeMap: &ctx.CatCodeMap,
+		logger:     &ctx.TokenizerLog,
 	}
 }
 
@@ -164,10 +166,10 @@ func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	}
 	lineIndex, runeIndex := tokenizer.reader.Coordinates()
 	source := ReaderSource{
-		reader: tokenizer.reader,
-		lineIndex: lineIndex,
+		reader:            tokenizer.reader,
+		lineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
-		endingRuneIndex: runeIndex,
+		endingRuneIndex:   runeIndex,
 	}
 	return token.NewCharacterToken(s, c, source), tokenizer.err
 }
@@ -190,19 +192,19 @@ func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
 	}
 	value := b.String()
 	source := ReaderSource{
-		reader: tokenizer.reader,
-		lineIndex: lineIndex,
+		reader:            tokenizer.reader,
+		lineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
-		endingRuneIndex: runeIndex + len(value) - 1,
+		endingRuneIndex:   runeIndex + len(value) - 1,
 	}
 	return token.NewCommandToken(b.String(), source), nil
 }
 
 type ReaderSource struct {
-	reader    *Reader
+	reader            *Reader
 	startingRuneIndex int
-	endingRuneIndex int
-	lineIndex int
+	endingRuneIndex   int
+	lineIndex         int
 }
 
 func (source ReaderSource) String() string {
@@ -210,17 +212,60 @@ func (source ReaderSource) String() string {
 	b.WriteString(
 		fmt.Sprintf(
 			"In file \"input.tex\", line %d, char %d:\n",
-			source.lineIndex + 1 ,
-			source.startingRuneIndex + 1,
-			),
-		)
+			source.lineIndex+1,
+			source.startingRuneIndex+1,
+		),
+	)
 	line, ok := source.reader.pastLines.Get(source.lineIndex)
 	if ok {
 		b.WriteString(">  ")
 		b.WriteString(line)
 		b.WriteString("\n")
-		b.WriteString(strings.Repeat(" ", source.startingRuneIndex + 3))
-		b.WriteString(strings.Repeat("^", source.endingRuneIndex - source.startingRuneIndex + 2))
+		b.WriteString(strings.Repeat(" ", source.startingRuneIndex+3))
+		b.WriteString(strings.Repeat("^", source.endingRuneIndex-source.startingRuneIndex+2))
 	}
 	return b.String()
+}
+
+// TokenizerWriter writes the output of the tokenizer to stdout.
+func TokenizerWriter(receiver logging.LogReceiver) {
+	fmt.Println("% GoTex tokenizer output")
+	fmt.Println("%")
+	fmt.Println("% This output is valid TeX and is equivalent to the input")
+	fmt.Println("%")
+	fmt.Println(fmt.Sprintf("%%%14s | value", "catcode"))
+	for {
+		entry, ok := receiver.GetEntry()
+		if !ok {
+			return
+		}
+		switch true {
+		case entry.E != nil:
+			fmt.Println(entry.E.Error())
+		case entry.T != nil:
+			var b strings.Builder
+			if entry.T.CatCode() < 0 {
+				b.WriteString("\\")
+				b.WriteString(fmt.Sprintf("%-10s ", entry.T.Value()+"%"))
+				b.WriteString("cmd")
+			} else {
+				if entry.T.CatCode() == catcode.Space {
+					b.WriteString(" ")
+				} else {
+					b.WriteString(entry.T.Value())
+				}
+				b.WriteString(fmt.Sprintf("%-10s ", "%"))
+				b.WriteString(fmt.Sprintf("%3d", entry.T.CatCode()))
+			}
+			b.WriteString(" | ")
+			if entry.T.Value() == "\n" {
+				b.WriteString("<newline>")
+			} else {
+				b.WriteString(entry.T.Value())
+			}
+			fmt.Println(b.String())
+		case entry.S != "":
+			fmt.Println("%               | " + entry.S)
+		}
+	}
 }

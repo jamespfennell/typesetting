@@ -3,11 +3,12 @@ package library
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
+	"strconv"
 	"time"
 )
 
 func Year() []token.Token {
-	year := string(rune(time.Now().Year()))
+	year := strconv.Itoa(time.Now().Year())
 	tokens := make([]token.Token, len(year))
 	for i, c := range year {
 		tokens[i] = token.NewCharacterToken(string(c), catcode.Other, nil) // TODO source

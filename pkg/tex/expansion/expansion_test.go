@@ -79,4 +79,3 @@ func TestExpand_NonExpandableCommandsPassThrough(t *testing.T) {
 
 	testutil.CheckStreamEqual(t, expectedStream, actualStream)
 }
-

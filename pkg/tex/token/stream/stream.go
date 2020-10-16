@@ -1,6 +1,9 @@
 package stream
 
-import "github.com/jamespfennell/typesetting/pkg/tex/token"
+import (
+	"github.com/jamespfennell/typesetting/pkg/tex/logging"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
+)
 
 // TokenStream represents a token list, a fundamental data type in TeX.
 // A token list is an ordered collection of Token types which are retrieved on demand.
@@ -136,4 +139,19 @@ func (s *streamWithCleanup) PeekToken() (token.Token, error) {
 		return nil, nil
 	}
 	return s.list.PeekToken() // TODO: what if the stream is over?
+}
+
+func NewStreamWithLog(s TokenStream, sender logging.LogSender) TokenStream {
+	return streamWithLog{s, sender}
+}
+
+type streamWithLog struct {
+	TokenStream
+	logging.LogSender
+}
+
+func (s streamWithLog) NextToken() (token.Token, error) {
+	t, err := s.TokenStream.NextToken()
+	s.LogSender.SendToken(t, err)
+	return t, err
 }

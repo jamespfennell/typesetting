@@ -5,6 +5,18 @@ import (
 	"strings"
 )
 
+func Consume(stream TokenStream) error {
+	for {
+		t, err := stream.NextToken()
+		if err != nil {
+			return err
+		}
+		if t == nil {
+			return nil
+		}
+	}
+}
+
 func ReadString(stream TokenStream) (string, error) {
 	var b strings.Builder
 	for {

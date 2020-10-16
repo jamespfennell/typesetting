@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"testing"
@@ -34,3 +35,8 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 	}
 }
 
+func CreateTexContext() *context.Context {
+	ctx := context.NewContext()
+	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
+	return ctx
+}

@@ -84,7 +84,7 @@ func (file *Reader) UnreadRune() error {
 }
 
 func (file *Reader) Coordinates() (int, int) {
-	return file.lineIndex, file.runeIndex-1
+	return file.lineIndex, file.runeIndex - 1
 }
 
 func (file *Reader) Line(index int) (string, bool) {
