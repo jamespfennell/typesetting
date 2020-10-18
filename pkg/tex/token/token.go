@@ -1,6 +1,9 @@
 package token
 
-import "github.com/jamespfennell/typesetting/pkg/tex/catcode"
+import (
+	"fmt"
+	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+)
 
 type Source interface {
 	String() string
@@ -33,6 +36,13 @@ func (token characterToken) CatCode() catcode.CatCode {
 
 func (token characterToken) Source() Source {
 	return token.source
+}
+
+func (token characterToken) String() string {
+	if token.CatCode() == -1 {
+		return fmt.Sprintf("[cmd: %s]", token.Value())
+	}
+	return fmt.Sprintf("[val: %s; cc: %d]", token.Value(), token.CatCode())
 }
 
 func NewCommandToken(value string, source Source) Token {
