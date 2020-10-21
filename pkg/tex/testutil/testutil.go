@@ -32,7 +32,7 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 		t1, err1 := s1.NextToken()
 		t2, err2 := s2.NextToken()
 		if err1 != err2 {
-			t.Errorf("Difference! (%v, %v) != (%v, %v)", t1, err1, t2, err2)
+			t.Errorf("Error difference: %v != %v", err1, err2)
 			result = false
 		}
 		if !CheckTokenEqual(t, t1, t2) {

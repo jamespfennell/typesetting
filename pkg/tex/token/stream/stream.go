@@ -101,6 +101,7 @@ func (s chainedStream) PerformOp(op Op) (token.Token, error) {
 		}
 		if t == nil {
 			s.streams = s.streams[1:]
+			continue
 		}
 		return t, nil
 	}

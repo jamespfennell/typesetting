@@ -2,6 +2,7 @@ package macro
 
 import (
 	"errors"
+	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
@@ -36,7 +37,7 @@ type replacementTokens struct {
 }
 
 type replacementParameter struct {
-	index int
+	index int  // TODO: rename to make clean this is 1-based, or change to 0-based
 	next *replacementTokens
 }
 
@@ -144,7 +145,7 @@ func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) 
 				return errors.New("unexpected number after #")
 			}
 			lastParameter++
-			m.argument.delimiters = append(m.delimiters, []token.Token{})
+			m.argument.delimiters = append(m.argument.delimiters, []token.Token{})
 		default:
 			m.addArgumentToken(t)
 		}
@@ -167,22 +168,26 @@ func init() {
 }
 
 type matchedParameters struct {
-	parameters [][]token.Token
+	parameters [][]token.Token  // todo: rename values
 }
 
 func (m *Macro) output (p *matchedParameters) stream.TokenStream {
 	var components []stream.TokenStream
 	replacementTokens := m.replacement
+	fmt.Println(m.argument.prefix)
+	fmt.Println(m.argument.delimiters)
 	for {
 		if replacementTokens == nil {
+			fmt.Println("Ending")
 			break
 		}
+		fmt.Println("Posting", replacementTokens.tokens)
 		components = append(components, stream.NewSliceStream(replacementTokens.tokens))
 		if replacementTokens.next == nil {
 			break
 		}
 		parameter := replacementTokens.next.index
-		components = append(components, stream.NewSliceStream(p.parameters[parameter]))
+		components = append(components, stream.NewSliceStream(p.parameters[parameter-1]))
 		replacementTokens = replacementTokens.next.next
 	}
 	return stream.NewChainedStream(components...)
@@ -210,6 +215,7 @@ func (m *Macro) matchParameters(s stream.TokenStream) (*matchedParameters, error
 			return nil, err
 		}
 		p.parameters = append(p.parameters, thisParameter)
+		index++
 	}
 }
 
@@ -295,10 +301,11 @@ func (m *Macro) matchArgumentPrefix(s stream.TokenStream) error {
 			return errors.New("unexpected end of input")
 		}
 		if tokenToMatch.Value() != t.Value() {
-			return errors.New("unexpected token value")
+			return errors.New(fmt.Sprintf("unexpected token value %s; expected %s", t.Value(), tokenToMatch.Value()))
 		}
 		if tokenToMatch.CatCode() != t.CatCode() {
 			return errors.New("unexpected token cat code")
 		}
+		i++
 	}
 }
