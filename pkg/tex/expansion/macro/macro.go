@@ -13,6 +13,7 @@ import (
 type Macro struct {
 	argument
 	replacement *replacementTokens
+	lastToken token.Token
 }
 
 type argument struct {
@@ -50,6 +51,7 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 		return nil, errors.New("expected command token, received something else")
 	}
 	m := &Macro{}
+	m.replacement = &replacementTokens{}
 	if err := m.parseArgumentTokens(ctx, s); err != nil {
 		return nil, err
 	}
@@ -68,8 +70,7 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 
 func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStream) error {
 	scopeDepth := 0
-	curTokens := &replacementTokens{}
-	m.replacement = curTokens
+	curTokens := m.replacement
 	for {
 		t, err := s.NextToken()
 		if err != nil {
@@ -139,7 +140,10 @@ func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) 
 			}
 			if t.CatCode() == catcode.BeginGroup {
 				// end the group according to the special #{ rule
-				return errors.New("TODO: this is not an error")
+				// return errors.New("TODO: this is not an error")
+				m.addArgumentToken(t)
+				m.lastToken = t
+				return nil
 			}
 			intVal, ok := charToInt[t.Value()]
 			if !ok {
@@ -178,14 +182,11 @@ type matchedParameters struct {
 func (m *Macro) output(p *matchedParameters) stream.TokenStream {
 	var components []stream.TokenStream
 	replacementTokens := m.replacement
-	fmt.Println(m.argument.prefix)
-	fmt.Println(m.argument.delimiters)
 	for {
 		if replacementTokens == nil {
 			fmt.Println("Ending")
 			break
 		}
-		fmt.Println("Posting", replacementTokens.tokens)
 		components = append(components, stream.NewSliceStream(replacementTokens.tokens))
 		if replacementTokens.next == nil {
 			break
@@ -193,6 +194,9 @@ func (m *Macro) output(p *matchedParameters) stream.TokenStream {
 		parameter := replacementTokens.next.index
 		components = append(components, stream.NewSliceStream(p.parameters[parameter-1]))
 		replacementTokens = replacementTokens.next.next
+	}
+	if m.lastToken != nil {
+		components = append(components, stream.NewSliceStream([]token.Token{m.lastToken}))
 	}
 	return stream.NewChainedStream(components...)
 }

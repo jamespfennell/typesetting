@@ -79,7 +79,7 @@ func TestDef(t *testing.T) {
 			"xbydef",
 		},
 		{ // Two delimited parameters with prefix
-			"\\def\\A a#1c#2e{x#2y#1z}\\A abcdef",
+			`\def\A a#1c#2e{x#2y#1z}\A abcdef`,
 			"xdybzf",
 		},
 		{ // TeXBook exercise 20.1
@@ -107,11 +107,11 @@ func TestDef(t *testing.T) {
 			"({\\bf x}_1,\\ldots,{\\bf x}_n)",
 		},
 		{ // TeXBook exercise 20.4, part 1
-			"\\def\\mustnt#1#2{I must not #1 in #2.}" +
-				"\\def\\five#1#2{\\mustnt{#1}{#2}\\mustnt{#1}{#2}\\mustnt{#1}{#2}\\mustnt{#1}{#2}\\mustnt{#1}{#2}}" +
-				"\\def\\twenty#1#2{\\five{#1}{#2}\\five{#1}{#2}\\five{#1}{#2}\\five{#1}{#2}}" +
-				"\\def\\punishment#1#2{\\twenty{#1}{#2}\\twenty{#1}{#2}\\twenty{#1}{#2}\\twenty{#1}{#2}\\twenty{#1}{#2}}" +
-				"\\punishment{run}{the halls}",
+			`\def\mustnt#1#2{I must not #1 in #2.}` +
+				`\def\five#1#2{\mustnt{#1}{#2}\mustnt{#1}{#2}\mustnt{#1}{#2}\mustnt{#1}{#2}\mustnt{#1}{#2}}` +
+				`\def\twenty#1#2{\five{#1}{#2}\five{#1}{#2}\five{#1}{#2}\five{#1}{#2}}` +
+				`\def\punishment#1#2{\twenty{#1}{#2}\twenty{#1}{#2}\twenty{#1}{#2}\twenty{#1}{#2}\twenty{#1}{#2}}` +
+				`\punishment{run}{the halls}`,
 			strings.Repeat("I must not run in the halls.", 100),
 		},
 		{ // TeXBook exercise 20.4, part 2
@@ -126,6 +126,10 @@ func TestDef(t *testing.T) {
 			"\\def\\a#1{\\def\\b##1{##1#1}}" +
 				"\\a!\\b{Hello}",
 			"Hello!",
+		},
+		{ // TeXBook exercise 20.6
+			"\\def\\b#1{And #1, World!}\\def\\a#{\\b}\\a{Hello}",
+			"And Hello, World!",
 		},
 	}
 
