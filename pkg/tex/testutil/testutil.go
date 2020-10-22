@@ -28,6 +28,7 @@ func NewStream(ctx *context.Context, s string) stream.TokenStream {
 
 func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 	result = true
+	var v1, v2 string
 	for {
 		t1, err1 := s1.NextToken()
 		t2, err2 := s2.NextToken()
@@ -38,10 +39,20 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 		if !CheckTokenEqual(t, t1, t2) {
 			result = false
 		}
-		if err1 != nil || t1 == nil {
-			return
+		if t1 != nil {
+			v1 += t1.Value()
+		}
+		if t2 != nil {
+			v2 += t2.Value()
+		}
+		if err1 != nil || (t1 == nil && t2 == nil) {
+			break
 		}
 	}
+	if !result {
+		t.Errorf("Full streams: %s != %s", v1, v2)
+	}
+	return
 }
 
 func CheckTokenEqual(t *testing.T, t1, t2 token.Token) (result bool) {

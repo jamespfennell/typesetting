@@ -25,8 +25,8 @@ func (a *argument) addArgumentToken(t token.Token) {
 		a.prefix = append(a.prefix, t)
 		return
 	}
-	a.delimiters[len(a.delimiters) - 1] = append(
-		a.delimiters[len(a.delimiters) - 1],
+	a.delimiters[len(a.delimiters)-1] = append(
+		a.delimiters[len(a.delimiters)-1],
 		t,
 	)
 }
@@ -37,8 +37,8 @@ type replacementTokens struct {
 }
 
 type replacementParameter struct {
-	index int  // TODO: rename to make clean this is 1-based, or change to 0-based
-	next *replacementTokens
+	index int // TODO: rename to make clean this is 1-based, or change to 0-based
+	next  *replacementTokens
 }
 
 func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
@@ -46,7 +46,7 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 	if err != nil {
 		return []token.Token{t}, err
 	}
-	if t == nil || ! t.IsCommand() {
+	if t == nil || !t.IsCommand() {
 		return nil, errors.New("expected command token, received something else")
 	}
 	m := &Macro{}
@@ -100,7 +100,7 @@ func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStrea
 			}
 			parameter := replacementParameter{
 				index: index,
-				next: &replacementTokens{},
+				next:  &replacementTokens{},
 			}
 			curTokens.next = &parameter
 			curTokens = parameter.next
@@ -141,7 +141,7 @@ func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) 
 			if !ok {
 				return errors.New("unexpected token after #")
 			}
-			if intVal != lastParameter + 1 {
+			if intVal != lastParameter+1 {
 				return errors.New("unexpected number after #")
 			}
 			lastParameter++
@@ -168,10 +168,10 @@ func init() {
 }
 
 type matchedParameters struct {
-	parameters [][]token.Token  // todo: rename values
+	parameters [][]token.Token // todo: rename values
 }
 
-func (m *Macro) output (p *matchedParameters) stream.TokenStream {
+func (m *Macro) output(p *matchedParameters) stream.TokenStream {
 	var components []stream.TokenStream
 	replacementTokens := m.replacement
 	fmt.Println(m.argument.prefix)
@@ -221,9 +221,10 @@ func (m *Macro) matchParameters(s stream.TokenStream) (*matchedParameters, error
 
 func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token) ([]token.Token, error) {
 	var seen []token.Token
+	depth := 0
 	for {
-		if tokenListHasTail(seen, delimiter) {
-			return seen[ : len(seen) - len(delimiter)], nil
+		if depth == 0 && tokenListHasTail(seen, delimiter) {
+			return seen[:len(seen)-len(delimiter)], nil
 		}
 		t, err := s.NextToken()
 		if err != nil {
@@ -231,6 +232,12 @@ func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token) ([]tok
 		}
 		if t == nil {
 			return nil, errors.New("unexpected end of input")
+		}
+		if t.CatCode() == catcode.BeginGroup {
+			depth += 1
+		}
+		if t.CatCode() == catcode.EndGroup {
+			depth -= 1
 		}
 		seen = append(seen, t)
 	}
@@ -242,10 +249,10 @@ func tokenListHasTail(list, tail []token.Token) bool {
 		return false
 	}
 	for i, _ := range tail {
-		if list[headLen + i].Value() != tail[i].Value() {
+		if list[headLen+i].Value() != tail[i].Value() {
 			return false
 		}
-		if list[headLen + i].CatCode() != tail[i].CatCode() {
+		if list[headLen+i].CatCode() != tail[i].CatCode() {
 			return false
 		}
 	}
