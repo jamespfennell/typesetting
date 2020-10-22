@@ -5,6 +5,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,6 +83,10 @@ func TestDef(t *testing.T) {
 			`\def\A a#1c#2e{x#2y#1z}\A abcdef`,
 			"xdybzf",
 		},
+		{ // Two delimited parameters with prefix
+			`\def\A #1c{x#1y}\A {Hello}c`,
+			"xHelloy",
+		},
 		{ // TeXBook exercise 20.1
 			"\\def\\mustnt{I must not talk in class.}" +
 				"\\def\\five{\\mustnt\\mustnt\\mustnt\\mustnt\\mustnt}" +
@@ -127,23 +132,37 @@ func TestDef(t *testing.T) {
 				"\\a!\\b{Hello}",
 			"Hello!",
 		},
+		{ // TeXBook example below exercise 20.5
+			"\\def\\a#1#{\\hbox to #1}\\a3pt{x}",
+			"\\hbox to 3pt{x}",
+		},
 		{ // TeXBook exercise 20.6
 			"\\def\\b#1{And #1, World!}\\def\\a#{\\b}\\a{Hello}",
 			"And Hello, World!",
 		},
 	}
 
-	for _, params := range paramsList {
-		t.Run(params.input, func(t *testing.T) {
+	for i, params := range paramsList {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			ctx := context.NewContext()
 			ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
 			expansion.Register(&ctx.Registry, "def", Def)
 
-			startingStream := testutil.NewStream(ctx, params.input)
-			expectedStream := testutil.NewStream(ctx, params.output)
-			actualStream := expansion.Expand(ctx, startingStream)
-
-			testutil.CheckStreamEqual(t, expectedStream, actualStream)
+			testutil.RunExpansionTest(t, ctx, params.input, params.output)
 		})
 	}
+}
+
+func TestDef_TeXBookExercise20dot7(t *testing.T) {
+	ctx := context.NewContext()
+	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
+	ctx.CatCodeMap.Set("[", catcode.BeginGroup)
+	ctx.CatCodeMap.Set("]", catcode.EndGroup)
+	ctx.CatCodeMap.Set("!", catcode.Parameter)
+	expansion.Register(&ctx.Registry, "def", Def)
+
+	testutil.RunExpansionTest(t, ctx,
+		"\\def\\!!1#2![{!#]#!!2}\\! x{[y]][z}",
+		"{#]![y][z}",
+		)
 }

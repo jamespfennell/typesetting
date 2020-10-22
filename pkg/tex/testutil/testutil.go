@@ -3,12 +3,21 @@ package testutil
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"strings"
 	"testing"
 )
+
+func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput string) {
+	startingStream := NewStream(ctx, input)
+	expectedStream := NewStream(ctx, expectedOutput)
+	actualStream := expansion.Expand(ctx, startingStream)
+
+	CheckStreamEqual(t, expectedStream, actualStream)
+}
 
 func NewSimpleStream(values ...string) stream.TokenStream {
 	var tokens []token.Token
@@ -40,10 +49,18 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 			result = false
 		}
 		if t1 != nil {
-			v1 += t1.Value()
+			if t1.IsCommand() {
+				v1 += `\` + t1.Value() + ` `
+			} else {
+				v1 += t1.Value()
+			}
 		}
 		if t2 != nil {
-			v2 += t2.Value()
+			if t2.IsCommand() {
+				v2 += `\` + t2.Value() + ` `
+			} else {
+				v2 += t2.Value()
+			}
 		}
 		if err1 != nil || (t1 == nil && t2 == nil) {
 			break

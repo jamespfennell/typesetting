@@ -63,6 +63,12 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 		if err != nil {
 			return stream.NewErrorStream(err)
 		}
+		for i, param := range p.parameters {
+			// TODO: make this loggable through the logger in the context
+			// fmt.Println(fmt.Sprintf("#%d<-%v", i, param))
+			_ = i
+			_ = param
+		}
 		return m.output(p)
 	})
 	return []token.Token{}, nil
@@ -217,7 +223,7 @@ func (m *Macro) matchParameters(s stream.TokenStream) (*matchedParameters, error
 		if len(delimiter) == 0 {
 			thisParameter, err = getUndelimitedParameter(s)
 		} else {
-			thisParameter, err = getDelimitedParameter(s, delimiter)
+			thisParameter, err = getDelimitedParameter(s, delimiter, index+1)
 		}
 		if err != nil {
 			return nil, err
@@ -227,11 +233,22 @@ func (m *Macro) matchParameters(s stream.TokenStream) (*matchedParameters, error
 	}
 }
 
-func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token) ([]token.Token, error) {
+func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token, paramNum int) ([]token.Token, error) {
 	var seen []token.Token
 	depth := 0
+	targetDepth := 0
+	// Hack to handle the special case of ending begin group
+	if delimiter[len(delimiter) - 1].CatCode() == catcode.BeginGroup {
+		targetDepth = 1
+	}
 	for {
-		if depth == 0 && tokenListHasTail(seen, delimiter) {
+		if depth == targetDepth && tokenListHasTail(seen, delimiter) {
+			preResult := seen[:len(seen)-len(delimiter)]
+			if len(preResult) > 1 {
+				if (preResult[0].CatCode() == catcode.BeginGroup) && (preResult[len(preResult)-1].CatCode() == catcode.EndGroup) {
+					return preResult[1: len(preResult)-1], nil
+				}
+			}
 			return seen[:len(seen)-len(delimiter)], nil
 		}
 		t, err := s.NextToken()
@@ -239,7 +256,13 @@ func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token) ([]tok
 			return nil, err
 		}
 		if t == nil {
-			return nil, errors.New("unexpected end of input")
+			fmt.Println(seen)
+			return nil, errors.New(
+				fmt.Sprintf("unexpected end of input while reading parameter %d of macro \\", paramNum),
+			)
+			// TODO: input ended here
+			// TODO: macro invocation starts here
+			// TODO: macro defined here
 		}
 		if t.CatCode() == catcode.BeginGroup {
 			depth += 1
