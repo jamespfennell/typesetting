@@ -74,6 +74,39 @@ func (s errorStream) PeekToken() (token.Token, error) {
 	return nil, s.e
 }
 
+func NewChainedStream(s ...TokenStream) TokenStream {
+	return chainedStream{streams: s}
+}
+
+type chainedStream struct {
+	streams []TokenStream
+}
+
+func (s chainedStream) NextToken() (token.Token, error) {
+	return s.PerformOp(NextTokenOp)
+}
+
+func (s chainedStream) PeekToken() (token.Token, error) {
+	return s.PerformOp(PeekTokenOp)
+}
+
+func (s chainedStream) PerformOp(op Op) (token.Token, error) {
+	for {
+		if len(s.streams) == 0 {
+			return nil, nil
+		}
+		t, err := op(s.streams[0])
+		if err != nil {
+			return t, err
+		}
+		if t == nil {
+			s.streams = s.streams[1:]
+			continue
+		}
+		return t, nil
+	}
+}
+
 type StackStream struct {
 	stack []TokenStream
 }

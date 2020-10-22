@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// TODO: what if the stream ends with a space? The space seems to be missing.
+
 func TestTokenizer(t *testing.T) {
 	paramsList := []struct {
 		input          string
