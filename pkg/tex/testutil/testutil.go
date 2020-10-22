@@ -50,7 +50,7 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 		}
 	}
 	if !result {
-		t.Errorf("Full streams: %s != %s", v1, v2)
+		t.Errorf("Full streams: \n%s\n%s", v1, v2)
 	}
 	return
 }

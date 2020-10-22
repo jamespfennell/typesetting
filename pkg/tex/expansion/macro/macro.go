@@ -94,9 +94,13 @@ func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStrea
 			if t == nil {
 				return errors.New("expected command token, received something else")
 			}
+			if t.CatCode() == catcode.Parameter {
+				curTokens.tokens = append(curTokens.tokens, t)
+				continue
+			}
 			index, ok := charToInt[t.Value()]
 			if !ok {
-				return errors.New("unexpected token after #")
+				return errors.New("unexpected token after #: " + t.Value())
 			}
 			parameter := replacementParameter{
 				index: index,
@@ -139,10 +143,10 @@ func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) 
 			}
 			intVal, ok := charToInt[t.Value()]
 			if !ok {
-				return errors.New("unexpected token after #")
+				return errors.New("unexpected token after #: " + t.Value())
 			}
 			if intVal != lastParameter+1 {
-				return errors.New("unexpected number after #")
+				return errors.New("unexpected number after #: " + t.Value())
 			}
 			lastParameter++
 			m.argument.delimiters = append(m.argument.delimiters, []token.Token{})
