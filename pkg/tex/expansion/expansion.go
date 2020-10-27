@@ -37,17 +37,11 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 		if err != nil || t == nil || !t.IsCommand() {
 			return t, err
 		}
-		cmd, ok := s.ctx.Registry.GetCommand(t.Value())
+		cmd, ok := s.ctx.Expansion.Commands.Get(t.Value())
 		if !ok {
 			return t, nil
-			// return t, NewUndefinedControlSequenceError(t)
 		}
-		expansionCmd, ok := cmd.(CanonicalFunc)
-		if !ok {
-			fmt.Println("Skipping non-expansion command", t.Value())
-			return t, nil
-		}
-		s.stack.Push(expansionCmd(s.ctx, s.stack.Snapshot()))
+		s.stack.Push(cmd.Invoke(s.ctx, s.stack.Snapshot()))
 	}
 }
 

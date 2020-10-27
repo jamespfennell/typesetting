@@ -1,13 +1,12 @@
 # Next steps
 
-- Change the command map to be an expansion command map.
-
-- Define an `ExpansionCommand` interface and redo the
-    `func` based commands appropriately.
-    Then make the map values `ExpansionCommand`.
-
-- Make the macro type satisfy the interface -
+- Make the macro type satisfy the
+    `ExpansionCommand`
+    interface -
     no need to cast it.
+ 
+- Make `def` into an `ExecutionCommand` and set 
+    everything up.
     
 - Think about how to arrange the context object.
     Should probably have command sub-contexts,

@@ -102,7 +102,7 @@ func TestDef(t *testing.T) {
 				"\\def\\puzzle{\\a\\a\\a\\a\\a}",
 				"ABCAB",
 		},
-		 */
+		*/
 		{ // TeXBook exercise 20.3, part 1
 			"\\def\\row#1{(#1_1,\\ldots,#1_n)}\\row{\\bf x}",
 			"(\\bf x_1,\\ldots,\\bf x_n)",
@@ -145,8 +145,8 @@ func TestDef(t *testing.T) {
 	for i, params := range paramsList {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			ctx := context.NewContext()
-			ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
-			expansion.Register(&ctx.Registry, "def", Def)
+			ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
+			expansion.RegisterFunc(ctx, "def", Def)
 
 			testutil.RunExpansionTest(t, ctx, params.input, params.output)
 		})
@@ -155,14 +155,14 @@ func TestDef(t *testing.T) {
 
 func TestDef_TeXBookExercise20dot7(t *testing.T) {
 	ctx := context.NewContext()
-	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
-	ctx.CatCodeMap.Set("[", catcode.BeginGroup)
-	ctx.CatCodeMap.Set("]", catcode.EndGroup)
-	ctx.CatCodeMap.Set("!", catcode.Parameter)
-	expansion.Register(&ctx.Registry, "def", Def)
+	ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
+	ctx.Tokenization.CatCodes.Set("[", catcode.BeginGroup)
+	ctx.Tokenization.CatCodes.Set("]", catcode.EndGroup)
+	ctx.Tokenization.CatCodes.Set("!", catcode.Parameter)
+	expansion.RegisterFunc(ctx, "def", Def)
 
 	testutil.RunExpansionTest(t, ctx,
 		"\\def\\!!1#2![{!#]#!!2}\\! x{[y]][z}",
 		"{#]![y][z}",
-		)
+	)
 }

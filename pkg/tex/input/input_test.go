@@ -1,7 +1,8 @@
-package input
+package input_test
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	. "github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"strings"
@@ -160,7 +161,7 @@ func TestTokenizer(t *testing.T) {
 
 func TestTokenizer_IgnoredCharacter(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	ctx.CatCodeMap.Set("A", catcode.Ignored)
+	ctx.Tokenization.CatCodes.Set("A", catcode.Ignored)
 	tokenizer := NewTokenizer(ctx, strings.NewReader("AB"))
 	expected := []token.Token{
 		token.NewCharacterToken("B", catcode.Letter, nil),
@@ -170,7 +171,7 @@ func TestTokenizer_IgnoredCharacter(t *testing.T) {
 
 func TestTokenizer_IgnoredCharacterInCommandIsAllowed(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	ctx.CatCodeMap.Set("A", catcode.Ignored)
+	ctx.Tokenization.CatCodes.Set("A", catcode.Ignored)
 	tokenizer := NewTokenizer(ctx, strings.NewReader("\\A"))
 	expected := []token.Token{
 		token.NewCommandToken("A", nil),
@@ -180,7 +181,7 @@ func TestTokenizer_IgnoredCharacterInCommandIsAllowed(t *testing.T) {
 
 func TestTokenizer_InvalidCharacter(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	ctx.CatCodeMap.Set("B", catcode.Invalid)
+	ctx.Tokenization.CatCodes.Set("B", catcode.Invalid)
 	tokenizer := NewTokenizer(ctx, strings.NewReader("AB"))
 	verifyValidToken(t, tokenizer, token.NewCharacterToken("A", catcode.Letter, nil))
 	verifyInvalidToken(t, tokenizer)
@@ -188,14 +189,14 @@ func TestTokenizer_InvalidCharacter(t *testing.T) {
 
 func TestTokenizer_InvalidCharacterInCommentIsAllowed(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	ctx.CatCodeMap.Set("B", catcode.Invalid)
+	ctx.Tokenization.CatCodes.Set("B", catcode.Invalid)
 	tokenizer := NewTokenizer(ctx, strings.NewReader("A%B"))
 	verifyAllValidTokens(t, tokenizer, []token.Token{token.NewCharacterToken("A", catcode.Letter, nil)})
 }
 
 func TestTokenizer_InvalidCharacterInCommandIsAllowed(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	ctx.CatCodeMap.Set("B", catcode.Invalid)
+	ctx.Tokenization.CatCodes.Set("B", catcode.Invalid)
 	tokenizer := NewTokenizer(ctx, strings.NewReader("\\B"))
 	verifyAllValidTokens(t, tokenizer, []token.Token{token.NewCommandToken("B", nil)})
 }
@@ -214,7 +215,7 @@ func TestTokenizer_NonUtf8Character(t *testing.T) {
 
 func TestTokenizer_ScopeChange(t *testing.T) {
 	ctx := testutil.CreateTexContext()
-	m := ctx.CatCodeMap
+	m := ctx.Tokenization.CatCodes
 	tokenizer := NewTokenizer(ctx, strings.NewReader("{{{"))
 	verifyValidToken(t, tokenizer, token.NewCharacterToken("{", catcode.BeginGroup, nil))
 	m.BeginScope()

@@ -21,17 +21,17 @@ func Run(ctx *context.Context, filePath string) {
 
 func CreateTexContext() *context.Context {
 	ctx := context.NewContext()
-	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
-	expansion.Register(&ctx.Registry, "input", library.Input)
-	expansion.Register(&ctx.Registry, "string", library.String)
-	expansion.Register(&ctx.Registry, "year", library.Year)
+	ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
+	expansion.RegisterFunc(ctx, "input", library.Input)
+	expansion.RegisterFunc(ctx, "string", library.String)
+	expansion.RegisterFunc(ctx, "year", library.Year)
 	return ctx
 }
 
 func runInternal(ctx *context.Context, filePath string) error {
 
 	tokenList := input.NewTokenizerFromFilePath(ctx, filePath)
-	expandedList := stream.NewStreamWithLog(expansion.Expand(ctx, tokenList), ctx.ExpansionLog)
+	expandedList := stream.NewStreamWithLog(expansion.Expand(ctx, tokenList), ctx.Expansion.Log)
 
 	return stream.Consume(expandedList)
 }

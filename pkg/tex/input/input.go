@@ -29,7 +29,7 @@ func NewTokenizerFromFilePath(ctx *context.Context, filePath string) stream.Toke
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
-	ctx.TokenizerLog.SendComment("Reading file: " + filePath)
+	ctx.Tokenization.Log.SendComment("Reading file: " + filePath)
 	return stream.NewStreamWithCleanup(
 		NewTokenizer(ctx, f),
 		func() { _ = f.Close() },
@@ -39,8 +39,8 @@ func NewTokenizerFromFilePath(ctx *context.Context, filePath string) stream.Toke
 func NewTokenizer(ctx *context.Context, input io.Reader) *Tokenizer {
 	return &Tokenizer{
 		reader:     NewReader(input),
-		catCodeMap: &ctx.CatCodeMap,
-		logger:     &ctx.TokenizerLog,
+		catCodeMap: &ctx.Tokenization.CatCodes,
+		logger:     &ctx.Tokenization.Log,
 	}
 }
 

@@ -23,12 +23,12 @@ func main() {
 		sender, receiver := logging.NewLogPair()
 		defer sender.Close()
 		go input.TokenizerWriter(receiver)
-		ctx.TokenizerLog = sender
+		ctx.Tokenization.Log = sender
 	case "expand":
 		sender, receiver := logging.NewLogPair()
 		defer sender.Close()
 		go expansion.Writer(receiver)
-		ctx.ExpansionLog = sender
+		ctx.Expansion.Log = sender
 	}
 
 	tex.Run(ctx, filePath)

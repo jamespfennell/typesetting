@@ -1,7 +1,8 @@
-package expansion
+package expansion_test
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	. "github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestExpand_BasicCase(t *testing.T) {
 	ctx := context.NewContext()
-	Register(&ctx.Registry, "funca", func() stream.TokenStream {
+	RegisterFunc(ctx, "funca", func() stream.TokenStream {
 		return testutil.NewSimpleStream("a1", "a2")
 	})
 
@@ -22,7 +23,7 @@ func TestExpand_BasicCase(t *testing.T) {
 
 func TestExpand_InputProcessing(t *testing.T) {
 	ctx := context.NewContext()
-	Register(&ctx.Registry, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
 		t, _ := s.NextToken()
 		return testutil.NewSimpleStream("a1", t.Value(), "a2")
 	})
@@ -36,10 +37,10 @@ func TestExpand_InputProcessing(t *testing.T) {
 
 func TestExpand_StackIsConsumed(t *testing.T) {
 	ctx := context.NewContext()
-	Register(&ctx.Registry, "funca", func() stream.TokenStream {
+	RegisterFunc(ctx, "funca", func() stream.TokenStream {
 		return testutil.NewSimpleStream("funcb", "a1")
 	})
-	Register(&ctx.Registry, "funcb", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funcb", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
 		_, _ = s.NextToken()
 		_, _ = s.NextToken()
 		return testutil.NewSimpleStream("b1", "b2")
@@ -54,11 +55,11 @@ func TestExpand_StackIsConsumed(t *testing.T) {
 
 func TestExpand_InputToExpansionFunctionNotExpanded(t *testing.T) {
 	ctx := context.NewContext()
-	Register(&ctx.Registry, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
 		_, _ = s.NextToken()
 		return testutil.NewSimpleStream("a1", "a2")
 	})
-	Register(&ctx.Registry, "funcb", func() stream.TokenStream {
+	RegisterFunc(ctx, "funcb", func() stream.TokenStream {
 		return testutil.NewSimpleStream("b1", "b2")
 	})
 
@@ -71,7 +72,6 @@ func TestExpand_InputToExpansionFunctionNotExpanded(t *testing.T) {
 
 func TestExpand_NonExpandableCommandsPassThrough(t *testing.T) {
 	ctx := context.NewContext()
-	ctx.Registry.SetCommand("funca", "dummy function value")
 
 	startingStream := testutil.NewSimpleStream("funca")
 	expectedStream := testutil.NewSimpleStream("funca")

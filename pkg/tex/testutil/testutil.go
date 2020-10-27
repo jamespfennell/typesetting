@@ -94,6 +94,6 @@ func CheckTokenEqual(t *testing.T, t1, t2 token.Token) (result bool) {
 
 func CreateTexContext() *context.Context {
 	ctx := context.NewContext()
-	ctx.CatCodeMap = catcode.NewCatCodeMapWithTexDefaults()
+	ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
 	return ctx
 }

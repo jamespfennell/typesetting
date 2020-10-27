@@ -13,7 +13,7 @@ import (
 type Macro struct {
 	argument
 	replacement *replacementTokens
-	lastToken token.Token
+	lastToken   token.Token
 }
 
 type argument struct {
@@ -58,7 +58,8 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 	if err := m.parseReplacementTokens(ctx, s); err != nil {
 		return nil, err
 	}
-	expansion.Register(&ctx.Registry, t.Value(), func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+	// TODO: just make Marco satisfy the interface
+	expansion.RegisterFunc(ctx, t.Value(), func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 		p, err := m.matchParameters(s)
 		if err != nil {
 			return stream.NewErrorStream(err)
@@ -238,7 +239,7 @@ func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token, paramN
 	depth := 0
 	targetDepth := 0
 	// Hack to handle the special case of ending begin group
-	if delimiter[len(delimiter) - 1].CatCode() == catcode.BeginGroup {
+	if delimiter[len(delimiter)-1].CatCode() == catcode.BeginGroup {
 		targetDepth = 1
 	}
 	for {
@@ -246,7 +247,7 @@ func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token, paramN
 			preResult := seen[:len(seen)-len(delimiter)]
 			if len(preResult) > 1 {
 				if (preResult[0].CatCode() == catcode.BeginGroup) && (preResult[len(preResult)-1].CatCode() == catcode.EndGroup) {
-					return preResult[1: len(preResult)-1], nil
+					return preResult[1 : len(preResult)-1], nil
 				}
 			}
 			return seen[:len(seen)-len(delimiter)], nil
