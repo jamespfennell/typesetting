@@ -1,13 +1,13 @@
-package input
+package tokenization
 
 import (
 	"errors"
 	"fmt"
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"io"
 	"os"
 	"strings"
@@ -44,7 +44,7 @@ func NewTokenizer(ctx *context.Context, input io.Reader) *Tokenizer {
 	}
 }
 
-// NextToken returns the next token in the input stream.
+// NextToken returns the next token in the tokenization stream.
 //
 // The method retrieves one or more raw tokens and performs a number of processing steps, including:
 // (1) Filtering out tokens of type catcode.Ignored.
@@ -140,13 +140,13 @@ func (tokenizer *Tokenizer) nextTokenInternal() (token.Token, error) {
 	}
 }
 
-// NextRawToken returns the next token in the Tokenizer as read directly from the input stream (hence "raw") and
+// NextRawToken returns the next token in the Tokenizer as read directly from the tokenization stream (hence "raw") and
 // without doing any processing relating to comments or spacing or commands. This method should not be used in general
 // and is only exposed for debugging purposes.
 //
 // An error is returned in the following 3 circumstances.
-// (1) The end of the input stream has been reached, in which case the error will be io.EOF.
-// (2) There is an error retrieving an element from the input stream.
+// (1) The end of the tokenization stream has been reached, in which case the error will be io.EOF.
+// (2) There is an error retrieving an element from the tokenization stream.
 // (3) The next element in the stream is not a valid UTF-8 character.
 func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	r, _, err := tokenizer.reader.ReadRune()
@@ -213,7 +213,7 @@ func (source ReaderSource) String() string {
 	var b strings.Builder
 	b.WriteString(
 		fmt.Sprintf(
-			"In file \"input.tex\", line %d, char %d:\n",
+			"In file \"tokenization.tex\", line %d, char %d:\n",
 			source.LineIndex+1,
 			source.startingRuneIndex+1,
 		),
@@ -233,7 +233,7 @@ func (source ReaderSource) String() string {
 func TokenizerWriter(receiver logging.LogReceiver) {
 	fmt.Println("% GoTex tokenizer output")
 	fmt.Println("%")
-	fmt.Println("% This output is valid TeX and is equivalent to the input")
+	fmt.Println("% This output is valid TeX and is equivalent to the tokenization")
 	fmt.Println("%")
 	fmt.Println(fmt.Sprintf("%%%14s | value", "catcode"))
 	for {

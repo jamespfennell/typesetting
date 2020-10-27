@@ -1,10 +1,10 @@
-package library
+package commands
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
 func String(ctx *context.Context, tokenStream stream.TokenStream) ([]token.Token, error) {

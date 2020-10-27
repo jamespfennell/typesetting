@@ -13,7 +13,7 @@
 //
 // With these, the Knuth-Plass algorithm can be run using the CalculateBreakpoints function to identify the optimal
 // breakpoints.
-// After this, the lines can be set (i.e., the exact width of each input Item can be fixed) using the SetLine function.
+// After this, the lines can be set (i.e., the exact width of each tokenization Item can be fixed) using the SetLine function.
 package knuthplass
 
 import (

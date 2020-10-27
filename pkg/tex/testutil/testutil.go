@@ -1,12 +1,12 @@
 package testutil
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
-	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strings"
 	"testing"
 )
@@ -32,7 +32,7 @@ func NewSimpleStream(values ...string) stream.TokenStream {
 }
 
 func NewStream(ctx *context.Context, s string) stream.TokenStream {
-	return input.NewTokenizer(ctx, strings.NewReader(s))
+	return tokenization.NewTokenizer(ctx, strings.NewReader(s))
 }
 
 func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {

@@ -3,9 +3,9 @@ package context
 import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/datastructures"
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
 type Context struct {

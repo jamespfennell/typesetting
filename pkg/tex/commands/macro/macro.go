@@ -3,11 +3,11 @@ package macro
 import (
 	"errors"
 	"fmt"
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
 type Macro struct {
@@ -86,7 +86,7 @@ func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStrea
 			return err
 		}
 		if t == nil {
-			return errors.New("unexpected end of input while parsing macro argument")
+			return errors.New("unexpected end of tokenization while parsing macro argument")
 		}
 		switch t.CatCode() {
 		case catcode.BeginGroup:
@@ -132,7 +132,7 @@ func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) 
 			return err
 		}
 		if t == nil {
-			return errors.New("unexpected end of input while parsing macro argument")
+			return errors.New("unexpected end of tokenization while parsing macro argument")
 		}
 		switch t.CatCode() {
 		case catcode.BeginGroup:
@@ -261,9 +261,9 @@ func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token, paramN
 		if t == nil {
 			fmt.Println(seen)
 			return nil, errors.New(
-				fmt.Sprintf("unexpected end of input while reading parameter %d of macro \\", paramNum),
+				fmt.Sprintf("unexpected end of tokenization while reading parameter %d of macro \\", paramNum),
 			)
-			// TODO: input ended here
+			// TODO: tokenization ended here
 			// TODO: macro invocation starts here
 			// TODO: macro defined here
 		}
@@ -299,7 +299,7 @@ func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
 		return nil, err
 	}
 	if t == nil {
-		return nil, errors.New("unexpected end of input")
+		return nil, errors.New("unexpected end of tokenization")
 	}
 	if t.CatCode() != catcode.BeginGroup {
 		return []token.Token{t}, nil
@@ -312,7 +312,7 @@ func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
 			return nil, err
 		}
 		if t == nil {
-			return nil, errors.New("unexpected end of input")
+			return nil, errors.New("unexpected end of tokenization")
 		}
 		if t.CatCode() == catcode.BeginGroup {
 			scope += 1
@@ -339,7 +339,7 @@ func (m *Macro) matchArgumentPrefix(s stream.TokenStream) error {
 			return err
 		}
 		if t == nil {
-			return errors.New("unexpected end of input")
+			return errors.New("unexpected end of tokenization")
 		}
 		if tokenToMatch.Value() != t.Value() {
 			return errors.New(fmt.Sprintf("unexpected token value %s; expected %s", t.Value(), tokenToMatch.Value()))

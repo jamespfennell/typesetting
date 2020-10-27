@@ -1,10 +1,10 @@
 package macro
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strconv"
 	"strings"
 	"testing"
@@ -39,7 +39,7 @@ func TestDef(t *testing.T) {
 			"\\def\\A#1{#1 #1 #1}\\A1",
 			"1 1 1",
 		},
-		{ // One undelimited parameter with correct output - multiple token input
+		{ // One undelimited parameter with correct output - multiple token tokenization
 			"\\def\\A#1{a-#1-b}\\A{123}",
 			"a-123-b",
 		},
@@ -59,7 +59,7 @@ func TestDef(t *testing.T) {
 			"\\def\\A abc#1{y#1z}\\A abcdefg",
 			"ydzefg",
 		},
-		{ // One undelimited parameter with prefix - multiple token input
+		{ // One undelimited parameter with prefix - multiple token tokenization
 			"\\def\\A abc#1{y#1z}\\A abcdefg",
 			"ydzefg",
 		},

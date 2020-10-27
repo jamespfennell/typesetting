@@ -1,10 +1,10 @@
-package input_test
+package tokenization_test
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
-	. "github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
+	. "github.com/jamespfennell/typesetting/pkg/tex/tokenization"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strings"
 	"testing"
 )

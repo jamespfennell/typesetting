@@ -1,8 +1,8 @@
-package library
+package commands
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strconv"
 	"time"
 )

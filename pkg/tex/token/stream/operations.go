@@ -1,7 +1,7 @@
 package stream
 
 import (
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strings"
 )
 

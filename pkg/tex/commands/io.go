@@ -1,9 +1,9 @@
-package library
+package commands
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
-	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization"
 )
 
 func Input(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
@@ -11,5 +11,5 @@ func Input(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
-	return input.NewTokenizerFromFilePath(ctx, filePath)
+	return tokenization.NewTokenizerFromFilePath(ctx, filePath)
 }

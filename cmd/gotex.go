@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
-	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization"
 	"os"
 )
 
@@ -22,7 +22,7 @@ func main() {
 	case "tokenize":
 		sender, receiver := logging.NewLogPair()
 		defer sender.Close()
-		go input.TokenizerWriter(receiver)
+		go tokenization.TokenizerWriter(receiver)
 		ctx.Tokenization.Log = sender
 	case "expand":
 		sender, receiver := logging.NewLogPair()

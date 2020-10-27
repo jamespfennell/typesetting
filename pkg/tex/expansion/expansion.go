@@ -3,12 +3,12 @@ package expansion
 import (
 	"errors"
 	"fmt"
-	"github.com/jamespfennell/typesetting/pkg/tex/catcode"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
-	"github.com/jamespfennell/typesetting/pkg/tex/input"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization"
+	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strings"
 )
 
@@ -57,7 +57,7 @@ func NewUndefinedControlSequenceError(t token.Token) error {
 func Writer(receiver logging.LogReceiver) {
 	fmt.Println("% GoTex expansion output")
 	fmt.Println("%")
-	fmt.Println("% This output is valid TeX and is equivalent to the input")
+	fmt.Println("% This output is valid TeX and is equivalent to the tokenization")
 	fmt.Println("%")
 	var b strings.Builder
 	curLine := 0
@@ -71,7 +71,7 @@ func Writer(receiver logging.LogReceiver) {
 			fmt.Println(entry.E.Error())
 		case entry.T != nil:
 			if entry.T.Source() != nil {
-				readerSource, ok := entry.T.Source().(input.ReaderSource)
+				readerSource, ok := entry.T.Source().(tokenization.ReaderSource)
 				if ok && readerSource.LineIndex != curLine {
 					curLine = readerSource.LineIndex
 					fmt.Println(b.String())

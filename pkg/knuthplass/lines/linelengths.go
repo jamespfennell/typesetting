@@ -10,7 +10,7 @@ import d "github.com/jamespfennell/typesetting/pkg/distance"
 //
 // Otherwise, read the following optimization discussion carefully.
 // In general, the Knuth-Plass algorithm runs in O(L*N*M) where L is the number of lines the paragraph, N is the number
-// of items in the input, and M is approximately the number of items that can fit on each line.
+// of items in the tokenization, and M is approximately the number of items that can fit on each line.
 // There exists a simple optimization in the original paper of Knuth and Plass such that if the line lengths
 // are all constant, the running time is O(M*N); i.e., effectively L=1.
 // In this package's implementation of Knuth-Plass, this optimization is achieved by using a smart LineLengths
