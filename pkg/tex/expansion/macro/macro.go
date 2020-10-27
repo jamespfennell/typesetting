@@ -16,6 +16,20 @@ type Macro struct {
 	lastToken   token.Token
 }
 
+func (m Macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+	p, err := m.matchParameters(s)
+	if err != nil {
+		return stream.NewErrorStream(err)
+	}
+	for i, param := range p.parameters {
+		// TODO: make this loggable through the logger in the context
+		// fmt.Println(fmt.Sprintf("#%d<-%v", i, param))
+		_ = i
+		_ = param
+	}
+	return m.output(p)
+}
+
 type argument struct {
 	prefix     []token.Token
 	delimiters [][]token.Token
@@ -59,19 +73,7 @@ func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
 		return nil, err
 	}
 	// TODO: just make Marco satisfy the interface
-	expansion.RegisterFunc(ctx, t.Value(), func(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
-		p, err := m.matchParameters(s)
-		if err != nil {
-			return stream.NewErrorStream(err)
-		}
-		for i, param := range p.parameters {
-			// TODO: make this loggable through the logger in the context
-			// fmt.Println(fmt.Sprintf("#%d<-%v", i, param))
-			_ = i
-			_ = param
-		}
-		return m.output(p)
-	})
+	expansion.Register(ctx, t.Value(), m)
 	return []token.Token{}, nil
 }
 

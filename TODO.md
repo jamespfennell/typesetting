@@ -1,10 +1,5 @@
 # Next steps
 
-- Make the macro type satisfy the
-    `ExpansionCommand`
-    interface -
-    no need to cast it.
- 
 - Make `def` into an `ExecutionCommand` and set 
     everything up.
     
