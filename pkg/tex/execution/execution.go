@@ -21,7 +21,9 @@ func Execute(ctx *context.Context, s stream.ExpandingStream) error {
 		if t.IsCommand() {
 			cmd, ok := ctx.Execution.Commands.Get(t.Value())
 			if !ok {
-				return NewUndefinedControlSequenceError(t)
+				continue
+				// TODO: re-enable pronto!
+				// return NewUndefinedControlSequenceError(t)
 			}
 			err := cmd.Invoke(ctx, s)
 			if err != nil {

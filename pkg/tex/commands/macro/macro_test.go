@@ -2,7 +2,7 @@ package macro
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
-	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
+	"github.com/jamespfennell/typesetting/pkg/tex/execution"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strconv"
@@ -146,7 +146,7 @@ func TestDef(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			ctx := context.NewContext()
 			ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
-			expansion.RegisterFunc(ctx, "def", Def)
+			execution.RegisterFunc(ctx, "def", Def)
 
 			testutil.RunExpansionTest(t, ctx, params.input, params.output)
 		})
@@ -159,7 +159,7 @@ func TestDef_TeXBookExercise20dot7(t *testing.T) {
 	ctx.Tokenization.CatCodes.Set("[", catcode.BeginGroup)
 	ctx.Tokenization.CatCodes.Set("]", catcode.EndGroup)
 	ctx.Tokenization.CatCodes.Set("!", catcode.Parameter)
-	expansion.RegisterFunc(ctx, "def", Def)
+	execution.RegisterFunc(ctx, "def", Def)
 
 	testutil.RunExpansionTest(t, ctx,
 		"\\def\\!!1#2![{!#]#!!2}\\! x{[y]][z}",

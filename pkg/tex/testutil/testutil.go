@@ -1,7 +1,9 @@
 package testutil
 
 import (
+	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	"github.com/jamespfennell/typesetting/pkg/tex/execution"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
@@ -11,12 +13,38 @@ import (
 	"testing"
 )
 
+type recordingStream struct {
+	stream.ExpandingStream
+	o []token.Token
+}
+
+func (s *recordingStream) NextToken() (token.Token, error) {
+	t, err := s.ExpandingStream.NextToken()
+	if err == nil && t != nil {
+		if t.IsCommand() && t.Value() == "def" {
+
+		} else {
+			s.o = append(s.o, t)
+		}
+	}
+	return t, err
+}
+
 func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput string) {
 	startingStream := NewStream(ctx, input)
 	expectedStream := NewStream(ctx, expectedOutput)
 	actualStream := expansion.Expand(ctx, startingStream)
 
-	CheckStreamEqual(t, expectedStream, actualStream)
+	// HACK
+	s := &recordingStream{actualStream, []token.Token{}}
+	err := execution.Execute(ctx, s)  // TODO: print the error
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	fmt.Println(s.o)
+	actualStream2 := stream.NewSliceStream(s.o)
+
+	CheckStreamEqual(t, expectedStream, actualStream2)
 }
 
 func NewSimpleStream(values ...string) stream.TokenStream {

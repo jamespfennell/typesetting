@@ -27,8 +27,8 @@ func CreateTexContext() *context.Context {
 	expansion.RegisterFunc(ctx, "input", commands.Input)
 	expansion.RegisterFunc(ctx, "string", commands.String)
 	expansion.RegisterFunc(ctx, "year", commands.Year)
-	expansion.RegisterFunc(ctx, "def", macro.Def)
 
+	execution.RegisterFunc(ctx, "def", macro.Def)
 	execution.RegisterFunc(ctx, "par", func(*context.Context, stream.ExpandingStream) error { return nil })
 	execution.RegisterFunc(ctx, "relax", func(*context.Context, stream.ExpandingStream) error { return nil })
 	return ctx
@@ -37,6 +37,10 @@ func CreateTexContext() *context.Context {
 func runInternal(ctx *context.Context, filePath string) error {
 
 	tokenList := tokenization.NewTokenizerFromFilePath(ctx, filePath)
+	// TODO: how to catch def being in the expansion stream?
+	//  We need to distinguish between commands that pull from the expansion stream (and so are replayable)
+	//  and those that don't
+	//  Or in the expansion stream also record anything going out the backdoor <- this is probably easier
 	expandedList := stream.NewStreamWithLog(expansion.Expand(ctx, tokenList), ctx.Expansion.Log)
 
 	return execution.Execute(ctx, expandedList)

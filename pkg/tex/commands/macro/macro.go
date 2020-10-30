@@ -56,25 +56,26 @@ type replacementParameter struct {
 	next  *replacementTokens
 }
 
-func Def(ctx *context.Context, s stream.TokenStream) ([]token.Token, error) {
+func Def(ctx *context.Context, es stream.ExpandingStream) error {
+	s := es.SourceStream()
 	t, err := s.NextToken()
 	if err != nil {
-		return []token.Token{t}, err
+		return err
 	}
 	if t == nil || !t.IsCommand() {
-		return nil, errors.New("expected command token, received something else")
+		return errors.New("expected command token, received something else")
 	}
 	m := &Macro{}
 	m.replacement = &replacementTokens{}
 	if err := m.parseArgumentTokens(ctx, s); err != nil {
-		return nil, err
+		return err
 	}
 	if err := m.parseReplacementTokens(ctx, s); err != nil {
-		return nil, err
+		return err
 	}
 	// TODO: just make Marco satisfy the interface
 	expansion.Register(ctx, t.Value(), m)
-	return []token.Token{}, nil
+	return nil
 }
 
 func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStream) error {
