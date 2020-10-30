@@ -1,7 +1,6 @@
 package expansion
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
@@ -12,7 +11,7 @@ import (
 	"strings"
 )
 
-func Expand(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func Expand(ctx *context.Context, s stream.TokenStream) stream.ExpandingStream {
 	stack := stream.NewStackStream()
 	stack.Push(s)
 	return &expansionStream{ctx: ctx, stack: stack}
@@ -31,6 +30,10 @@ func (s *expansionStream) PeekToken() (token.Token, error) {
 	return s.PerformOp(stream.PeekTokenOp)
 }
 
+func (s *expansionStream) SourceStream() stream.TokenStream {
+	return s.stack
+}
+
 func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 	for {
 		t, err := s.stack.PerformOp(op)
@@ -43,14 +46,6 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 		}
 		s.stack.Push(cmd.Invoke(s.ctx, s.stack.Snapshot()))
 	}
-}
-
-func NewUndefinedControlSequenceError(t token.Token) error {
-	m := fmt.Sprintf("Undefined control sequence \\%s\n", t.Value())
-	if t.Source() != nil {
-		m += t.Source().String()
-	}
-	return errors.New(m)
 }
 
 // Writer writes the output of the expansion process to stdout.

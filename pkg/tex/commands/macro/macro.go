@@ -189,6 +189,8 @@ type matchedParameters struct {
 }
 
 func (m *Macro) output(p *matchedParameters) stream.TokenStream {
+	// TODO: may me more efficient if components is just a slice
+	//  we can pre allocate it b/c we can calculate the size of the output :)
 	var components []stream.TokenStream
 	replacementTokens := m.replacement
 	for {

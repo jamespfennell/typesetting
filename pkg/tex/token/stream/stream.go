@@ -18,6 +18,14 @@ type TokenStream interface {
 	PeekToken() (token.Token, error)
 }
 
+type ExpandingStream interface {
+	NextToken() (token.Token, error)
+
+	PeekToken() (token.Token, error)
+
+	SourceStream() TokenStream
+}
+
 type Op func(s TokenStream) (token.Token, error)
 
 type TokenStreamWithOp interface {
@@ -174,17 +182,17 @@ func (s *streamWithCleanup) PeekToken() (token.Token, error) {
 	return s.list.PeekToken() // TODO: what if the stream is over?
 }
 
-func NewStreamWithLog(s TokenStream, sender logging.LogSender) TokenStream {
+func NewStreamWithLog(s ExpandingStream, sender logging.LogSender) ExpandingStream {
 	return streamWithLog{s, sender}
 }
 
 type streamWithLog struct {
-	TokenStream
+	ExpandingStream
 	logging.LogSender
 }
 
 func (s streamWithLog) NextToken() (token.Token, error) {
-	t, err := s.TokenStream.NextToken()
+	t, err := s.ExpandingStream.NextToken()
 	s.LogSender.SendToken(t, err)
 	return t, err
 }
