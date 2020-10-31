@@ -22,8 +22,21 @@ type expansionStream struct {
 	stack *stream.StackStream
 }
 
+type loggingStream struct {
+	*stream.StackStream
+	l logging.LogSender
+}
+
+func (s loggingStream) NextToken() (token.Token, error) {
+	t, err := s.StackStream.NextToken()
+	s.l.SendToken(t, err)
+	return t, err
+}
+
 func (s *expansionStream) NextToken() (token.Token, error) {
-	return s.PerformOp(stream.NextTokenOp)
+	t, err := s.PerformOp(stream.NextTokenOp)
+	s.ctx.Expansion.Log.SendToken(t, err)
+	return t, err
 }
 
 func (s *expansionStream) PeekToken() (token.Token, error) {
@@ -31,7 +44,7 @@ func (s *expansionStream) PeekToken() (token.Token, error) {
 }
 
 func (s *expansionStream) SourceStream() stream.TokenStream {
-	return s.stack
+	return loggingStream{s.stack, s.ctx.Expansion.Log}
 }
 
 func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {

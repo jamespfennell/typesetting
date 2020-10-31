@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/execution"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
@@ -13,38 +12,34 @@ import (
 	"testing"
 )
 
-type recordingStream struct {
-	stream.ExpandingStream
-	o []token.Token
-}
-
-func (s *recordingStream) NextToken() (token.Token, error) {
-	t, err := s.ExpandingStream.NextToken()
-	if err == nil && t != nil {
-		if t.IsCommand() && t.Value() == "def" {
-
-		} else {
-			s.o = append(s.o, t)
-		}
-	}
-	return t, err
-}
-
 func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput string) {
 	startingStream := NewStream(ctx, input)
 	expectedStream := NewStream(ctx, expectedOutput)
-	actualStream := expansion.Expand(ctx, startingStream)
 
-	// HACK
-	s := &recordingStream{actualStream, []token.Token{}}
-	err := execution.Execute(ctx, s)  // TODO: print the error
+	var outputTokens []token.Token
+	err := execution.ExecuteWithControl(
+		ctx,
+		expansion.Expand(ctx, startingStream),
+		func(t token.Token) error {
+			outputTokens = append(outputTokens, t)
+			return nil
+		},
+		func(ctx *context.Context, s stream.ExpandingStream, t token.Token) error {
+			switch t.CatCode() {
+			case catcode.BeginGroup:
+				ctx.BeginScope()
+			case catcode.EndGroup:
+				ctx.EndScope()
+			}
+			outputTokens = append(outputTokens, t)
+			return nil
+		},
+	)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	fmt.Println(s.o)
-	actualStream2 := stream.NewSliceStream(s.o)
-
-	CheckStreamEqual(t, expectedStream, actualStream2)
+	actualStream := stream.NewSliceStream(outputTokens)
+	CheckStreamEqual(t, expectedStream, actualStream)
 }
 
 func NewSimpleStream(values ...string) stream.TokenStream {
