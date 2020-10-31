@@ -4,19 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
-	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
-type Macro struct {
-	argument
+type macro struct {
+	argumentsTemplate
 	replacement *replacementTokens
-	lastToken   token.Token
 }
 
-func (m Macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func (m macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
 	p, err := m.matchParameters(s)
 	if err != nil {
 		return stream.NewErrorStream(err)
@@ -30,20 +28,10 @@ func (m Macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenSt
 	return m.output(p)
 }
 
-type argument struct {
+type argumentsTemplate struct {
 	prefix     []token.Token
 	delimiters [][]token.Token
-}
-
-func (a *argument) addArgumentToken(t token.Token) {
-	if len(a.delimiters) == 0 {
-		a.prefix = append(a.prefix, t)
-		return
-	}
-	a.delimiters[len(a.delimiters)-1] = append(
-		a.delimiters[len(a.delimiters)-1],
-		t,
-	)
+	finalToken token.Token
 }
 
 type replacementTokens struct {
@@ -54,120 +42,6 @@ type replacementTokens struct {
 type replacementParameter struct {
 	index int // TODO: rename to make clean this is 1-based, or change to 0-based
 	next  *replacementTokens
-}
-
-func Def(ctx *context.Context, es stream.ExpandingStream) error {
-	s := es.SourceStream()
-	t, err := s.NextToken()
-	if err != nil {
-		return err
-	}
-	if t == nil || !t.IsCommand() {
-		return errors.New("expected command token, received something else")
-	}
-	m := &Macro{}
-	m.replacement = &replacementTokens{}
-	if err := m.parseArgumentTokens(ctx, s); err != nil {
-		return err
-	}
-	if err := m.parseReplacementTokens(ctx, s); err != nil {
-		return err
-	}
-	// TODO: just make Marco satisfy the interface
-	expansion.Register(ctx, t.Value(), m)
-	return nil
-}
-
-func (m *Macro) parseReplacementTokens(ctx *context.Context, s stream.TokenStream) error {
-	scopeDepth := 0
-	curTokens := m.replacement
-	for {
-		t, err := s.NextToken()
-		if err != nil {
-			return err
-		}
-		if t == nil {
-			return errors.New("unexpected end of tokenization while parsing macro argument")
-		}
-		switch t.CatCode() {
-		case catcode.BeginGroup:
-			scopeDepth += 1
-		case catcode.EndGroup:
-			if scopeDepth == 0 {
-				return nil
-			}
-			scopeDepth -= 1
-		case catcode.Parameter:
-			t, err := s.NextToken()
-			if err != nil {
-				return err
-			}
-			if t == nil {
-				return errors.New("expected command token, received something else")
-			}
-			if t.CatCode() == catcode.Parameter {
-				curTokens.tokens = append(curTokens.tokens, t)
-				continue
-			}
-			index, ok := charToInt[t.Value()]
-			if !ok {
-				return errors.New("unexpected token after #: " + t.Value())
-			}
-			parameter := replacementParameter{
-				index: index,
-				next:  &replacementTokens{},
-			}
-			curTokens.next = &parameter
-			curTokens = parameter.next
-			continue
-		}
-		curTokens.tokens = append(curTokens.tokens, t)
-	}
-}
-
-func (m *Macro) parseArgumentTokens(ctx *context.Context, s stream.TokenStream) error {
-	lastParameter := 0
-	for {
-		t, err := s.NextToken()
-		if err != nil {
-			return err
-		}
-		if t == nil {
-			return errors.New("unexpected end of tokenization while parsing macro argument")
-		}
-		switch t.CatCode() {
-		case catcode.BeginGroup:
-			return nil
-		case catcode.EndGroup:
-			return errors.New("unexpected end of group character in macro argument definition")
-		case catcode.Parameter:
-			t, err := s.NextToken()
-			if err != nil {
-				return err
-			}
-			if t == nil {
-				return errors.New("expected command token, received something else")
-			}
-			if t.CatCode() == catcode.BeginGroup {
-				// end the group according to the special #{ rule
-				// return errors.New("TODO: this is not an error")
-				m.addArgumentToken(t)
-				m.lastToken = t
-				return nil
-			}
-			intVal, ok := charToInt[t.Value()]
-			if !ok {
-				return errors.New("unexpected token after #: " + t.Value())
-			}
-			if intVal != lastParameter+1 {
-				return errors.New("unexpected number after #: " + t.Value())
-			}
-			lastParameter++
-			m.argument.delimiters = append(m.argument.delimiters, []token.Token{})
-		default:
-			m.addArgumentToken(t)
-		}
-	}
 }
 
 var charToInt map[string]int
@@ -189,7 +63,7 @@ type matchedParameters struct {
 	parameters [][]token.Token // todo: rename values
 }
 
-func (m *Macro) output(p *matchedParameters) stream.TokenStream {
+func (m *macro) output(p *matchedParameters) stream.TokenStream {
 	// TODO: may me more efficient if components is just a slice
 	//  we can pre allocate it b/c we can calculate the size of the output :)
 	var components []stream.TokenStream
@@ -207,25 +81,25 @@ func (m *Macro) output(p *matchedParameters) stream.TokenStream {
 		components = append(components, stream.NewSliceStream(p.parameters[parameter-1]))
 		replacementTokens = replacementTokens.next.next
 	}
-	if m.lastToken != nil {
-		components = append(components, stream.NewSliceStream([]token.Token{m.lastToken}))
+	if m.argumentsTemplate.finalToken != nil {
+		components = append(components, stream.NewSliceStream([]token.Token{m.argumentsTemplate.finalToken}))
 	}
 	return stream.NewChainedStream(components...)
 }
 
-func (m *Macro) matchParameters(s stream.TokenStream) (*matchedParameters, error) {
+func (m *macro) matchParameters(s stream.TokenStream) (*matchedParameters, error) {
 	if err := m.matchArgumentPrefix(s); err != nil {
 		return nil, err
 	}
 	p := &matchedParameters{}
 	index := 0
 	for {
-		if len(m.argument.delimiters) <= index {
+		if len(m.argumentsTemplate.delimiters) <= index {
 			return p, nil
 		}
 		var thisParameter []token.Token
 		var err error
-		delimiter := m.argument.delimiters[index]
+		delimiter := m.argumentsTemplate.delimiters[index]
 		if len(delimiter) == 0 {
 			thisParameter, err = getUndelimitedParameter(s)
 		} else {
@@ -330,13 +204,13 @@ func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
 	}
 }
 
-func (m *Macro) matchArgumentPrefix(s stream.TokenStream) error {
+func (m *macro) matchArgumentPrefix(s stream.TokenStream) error {
 	i := 0
 	for {
-		if len(m.argument.prefix) <= i {
+		if len(m.argumentsTemplate.prefix) <= i {
 			return nil
 		}
-		tokenToMatch := m.argument.prefix[i]
+		tokenToMatch := m.argumentsTemplate.prefix[i]
 		t, err := s.NextToken()
 		if err != nil {
 			return err

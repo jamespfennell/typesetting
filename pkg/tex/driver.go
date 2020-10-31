@@ -28,7 +28,7 @@ func CreateTexContext() *context.Context {
 	expansion.RegisterFunc(ctx, "string", commands.String)
 	expansion.RegisterFunc(ctx, "year", commands.Year)
 
-	execution.RegisterFunc(ctx, "def", macro.Def)
+	execution.Register(ctx, "def", macro.GetDef())
 	execution.RegisterFunc(ctx, "par", func(*context.Context, stream.ExpandingStream) error { return nil })
 	execution.RegisterFunc(ctx, "relax", func(*context.Context, stream.ExpandingStream) error { return nil })
 	return ctx

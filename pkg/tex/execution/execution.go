@@ -18,7 +18,7 @@ func ExecuteWithControl(
 	s stream.ExpandingStream,
 	undefinedCommandHandler func(token.Token) error,
 	nonCommandHandler func(*context.Context, stream.ExpandingStream, token.Token) error,
-	) error {
+) error {
 	for {
 		t, err := s.NextToken()
 		if err != nil {
