@@ -15,11 +15,11 @@ type macro struct {
 }
 
 func (m macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
-	p, err := m.matchParameters(s)
+	p, err := m.calculateParameterValues(s)
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
-	for i, param := range p.parameters {
+	for i, param := range p {
 		// TODO: make this loggable through the logger in the context
 		// fmt.Println(fmt.Sprintf("#%d<-%v", i, param))
 		_ = i
@@ -44,10 +44,12 @@ type replacementParameter struct {
 	next  *replacementTokens
 }
 
+type parameterValue []token.Token
+
 var charToInt map[string]int
 
 func init() {
-	charToInt = make(map[string]int, 10)
+	charToInt = make(map[string]int, 9)
 	charToInt["1"] = 1
 	charToInt["2"] = 2
 	charToInt["3"] = 3
@@ -59,11 +61,7 @@ func init() {
 	charToInt["9"] = 9
 }
 
-type matchedParameters struct {
-	parameters [][]token.Token // todo: rename values
-}
-
-func (m *macro) output(p *matchedParameters) stream.TokenStream {
+func (m *macro) output(p []parameterValue) stream.TokenStream {
 	// TODO: may me more efficient if components is just a slice
 	//  we can pre allocate it b/c we can calculate the size of the output :)
 	var components []stream.TokenStream
@@ -78,7 +76,7 @@ func (m *macro) output(p *matchedParameters) stream.TokenStream {
 			break
 		}
 		parameter := replacementTokens.next.index
-		components = append(components, stream.NewSliceStream(p.parameters[parameter-1]))
+		components = append(components, stream.NewSliceStream(p[parameter-1]))
 		replacementTokens = replacementTokens.next.next
 	}
 	if m.argumentsTemplate.finalToken != nil {
@@ -87,71 +85,73 @@ func (m *macro) output(p *matchedParameters) stream.TokenStream {
 	return stream.NewChainedStream(components...)
 }
 
-func (m *macro) matchParameters(s stream.TokenStream) (*matchedParameters, error) {
-	if err := m.matchArgumentPrefix(s); err != nil {
+func (a *argumentsTemplate) calculateParameterValues(s stream.TokenStream) ([]parameterValue, error) {
+	if err := a.consumePrefix(s); err != nil {
 		return nil, err
 	}
-	p := &matchedParameters{}
+	var p []parameterValue
 	index := 0
 	for {
-		if len(m.argumentsTemplate.delimiters) <= index {
+		if len(a.delimiters) <= index {
 			return p, nil
 		}
-		var thisParameter []token.Token
+		var value parameterValue
 		var err error
-		delimiter := m.argumentsTemplate.delimiters[index]
+		delimiter := a.delimiters[index]
 		if len(delimiter) == 0 {
-			thisParameter, err = getUndelimitedParameter(s)
+			value, err = consumeUndelimitedParameterValue(s)
 		} else {
-			thisParameter, err = getDelimitedParameter(s, delimiter, index+1)
+			value, err = consumeDelimitedParameterValue(s, delimiter, index+1)
 		}
 		if err != nil {
 			return nil, err
 		}
-		p.parameters = append(p.parameters, thisParameter)
+		p = append(p, value)
 		index++
 	}
 }
 
-func getDelimitedParameter(s stream.TokenStream, delimiter []token.Token, paramNum int) ([]token.Token, error) {
-	var seen []token.Token
-	depth := 0
-	targetDepth := 0
-	// Hack to handle the special case of ending begin group
+func consumeDelimitedParameterValue(s stream.TokenStream, delimiter []token.Token, paramNum int) (parameterValue, error) {
+	var tokenList []token.Token
+	scopeDepth := 0
+	closingScopeDepth := 0
+	// This handles the case of a macro whose argument ends with the special #{ tokens. In this special case the parsing
+	// will end with a scope depth of 1, because the last token parsed will be the { and all braces before that will
+	// be balanced.
 	if delimiter[len(delimiter)-1].CatCode() == catcode.BeginGroup {
-		targetDepth = 1
+		closingScopeDepth = 1
 	}
 	for {
-		if depth == targetDepth && tokenListHasTail(seen, delimiter) {
-			preResult := seen[:len(seen)-len(delimiter)]
-			if len(preResult) > 1 {
-				if (preResult[0].CatCode() == catcode.BeginGroup) && (preResult[len(preResult)-1].CatCode() == catcode.EndGroup) {
-					return preResult[1 : len(preResult)-1], nil
-				}
-			}
-			return seen[:len(seen)-len(delimiter)], nil
+		if scopeDepth == closingScopeDepth && tokenListHasTail(tokenList, delimiter) {
+			return trimOuterBracesIfPresent(tokenList[:len(tokenList)-len(delimiter)]), nil
 		}
 		t, err := s.NextToken()
 		if err != nil {
 			return nil, err
 		}
 		if t == nil {
-			fmt.Println(seen)
 			return nil, errors.New(
 				fmt.Sprintf("unexpected end of tokenization while reading parameter %d of macro \\", paramNum),
 			)
-			// TODO: tokenization ended here
-			// TODO: macro invocation starts here
-			// TODO: macro defined here
 		}
 		if t.CatCode() == catcode.BeginGroup {
-			depth += 1
+			scopeDepth += 1
 		}
 		if t.CatCode() == catcode.EndGroup {
-			depth -= 1
+			scopeDepth -= 1
 		}
-		seen = append(seen, t)
+		tokenList = append(tokenList, t)
 	}
+}
+
+func trimOuterBracesIfPresent(list []token.Token) []token.Token {
+	if len(list) <= 0 {
+		return list
+	}
+	if (list[0].CatCode() != catcode.BeginGroup) || (list[len(list)-1].CatCode() != catcode.EndGroup) {
+		return list
+	}
+	return list[1 : len(list)-1]
 }
 
 func tokenListHasTail(list, tail []token.Token) bool {
@@ -170,7 +170,7 @@ func tokenListHasTail(list, tail []token.Token) bool {
 	return true
 }
 
-func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
+func consumeUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error) {
 	t, err := s.NextToken()
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
 		return []token.Token{t}, nil
 	}
 	var result []token.Token
-	scope := 0
+	scopeDepth := 0
 	for {
 		t, err := s.NextToken()
 		if err != nil {
@@ -192,25 +192,25 @@ func getUndelimitedParameter(s stream.TokenStream) ([]token.Token, error) {
 			return nil, errors.New("unexpected end of tokenization")
 		}
 		if t.CatCode() == catcode.BeginGroup {
-			scope += 1
+			scopeDepth += 1
 		}
 		if t.CatCode() == catcode.EndGroup {
-			if scope == 0 {
+			if scopeDepth == 0 {
 				return result, nil
 			}
-			scope -= 1
+			scopeDepth -= 1
 		}
 		result = append(result, t)
 	}
 }
 
-func (m *macro) matchArgumentPrefix(s stream.TokenStream) error {
+func (a *argumentsTemplate) consumePrefix(s stream.TokenStream) error {
 	i := 0
 	for {
-		if len(m.argumentsTemplate.prefix) <= i {
+		if len(a.prefix) <= i {
 			return nil
 		}
-		tokenToMatch := m.argumentsTemplate.prefix[i]
+		tokenToMatch := a.prefix[i]
 		t, err := s.NextToken()
 		if err != nil {
 			return err

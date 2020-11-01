@@ -43,11 +43,11 @@ func TestDef(t *testing.T) {
 			"\\def\\A#1{a-#1-b}\\A{123}",
 			"a-123-b",
 		},
-		{ // Two undelimited parameters
+		{ // Two undelimited values
 			"\\def\\A#1#2{#2-#1}\\A56",
 			"6-5",
 		},
-		{ // Two undelimited parameters - multiple token inputs
+		{ // Two undelimited values - multiple token inputs
 			"\\def\\A#1#2{#2-#1}\\A{abc}{xyz}",
 			"xyz-abc",
 		},
@@ -79,11 +79,11 @@ func TestDef(t *testing.T) {
 			"\\def\\A a#1c{x#1y}\\A abcdef",
 			"xbydef",
 		},
-		{ // Two delimited parameters with prefix
+		{ // Two delimited values with prefix
 			`\def\A a#1c#2e{x#2y#1z}\A abcdef`,
 			"xdybzf",
 		},
-		{ // Two delimited parameters with prefix
+		{ // Two delimited values with prefix
 			`\def\A #1c{x#1y}\A {Hello}c`,
 			"xHelloy",
 		},

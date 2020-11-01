@@ -52,3 +52,7 @@ func NewCommandToken(value string, source Source) Token {
 func NewCharacterToken(value string, code catcode.CatCode, source Source) Token {
 	return characterToken{value: value, catCode: code, source: source}
 }
+
+func ErrorOrNil(t Token, err error) bool {
+	return err != nil || t == nil
+}

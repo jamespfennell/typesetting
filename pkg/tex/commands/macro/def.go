@@ -11,10 +11,10 @@ import (
 
 // command is used to build!
 type command struct {
-	global bool
-	outer  bool
+	global    bool
+	outer     bool
 	preExpand bool
-	ready  bool
+	ready     bool
 }
 
 func GetDef() context.ExecutionCommand {
@@ -91,9 +91,7 @@ func buildArgumentsTemplate(s stream.TokenStream) (argumentsTemplate, error) {
 	return template, err
 }
 
-func addTokenToArgumentTemplate(
-	a *argumentsTemplate,
-	t token.Token) {
+func addTokenToArgumentTemplate(a *argumentsTemplate, t token.Token) {
 	if len(a.delimiters) == 0 {
 		a.prefix = append(a.prefix, t)
 		return
