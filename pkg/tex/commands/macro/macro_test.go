@@ -31,15 +31,15 @@ func TestDef(t *testing.T) {
 			"\\def\\A#1{a-#1-b}",
 			"",
 		},
-		{ // One undelimited parameter with correct output
+		{ // One undelimited parameter with correct performReplacement
 			"\\def\\A#1{a-#1-b}\\A1",
 			"a-1-b",
 		},
-		{ // One undelimited parameter with correct output, parameter multiple times
+		{ // One undelimited parameter with correct performReplacement, parameter multiple times
 			"\\def\\A#1{#1 #1 #1}\\A1",
 			"1 1 1",
 		},
-		{ // One undelimited parameter with correct output - multiple token tokenization
+		{ // One undelimited parameter with correct performReplacement - multiple token tokenization
 			"\\def\\A#1{a-#1-b}\\A{123}",
 			"a-123-b",
 		},

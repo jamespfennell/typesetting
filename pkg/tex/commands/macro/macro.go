@@ -10,12 +10,12 @@ import (
 )
 
 type macro struct {
-	argumentsTemplate
+	argument    argumentTemplate
 	replacement *replacementTokens
 }
 
 func (m macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
-	p, err := m.calculateParameterValues(s)
+	p, err := m.argument.buildParameterValues(s)
 	if err != nil {
 		return stream.NewErrorStream(err)
 	}
@@ -25,13 +25,12 @@ func (m macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenSt
 		_ = i
 		_ = param
 	}
-	return m.output(p)
+	return m.replacement.performReplacement(p)
 }
 
-type argumentsTemplate struct {
+type argumentTemplate struct {
 	prefix     []token.Token
 	delimiters [][]token.Token
-	finalToken token.Token
 }
 
 type replacementTokens struct {
@@ -40,52 +39,58 @@ type replacementTokens struct {
 }
 
 type replacementParameter struct {
-	index int // TODO: rename to make clean this is 1-based, or change to 0-based
+	index int
 	next  *replacementTokens
 }
 
 type parameterValue []token.Token
 
-var charToInt map[string]int
+var charToParameterIndex map[string]int
 
 func init() {
-	charToInt = make(map[string]int, 9)
-	charToInt["1"] = 1
-	charToInt["2"] = 2
-	charToInt["3"] = 3
-	charToInt["4"] = 4
-	charToInt["5"] = 5
-	charToInt["6"] = 6
-	charToInt["7"] = 7
-	charToInt["8"] = 8
-	charToInt["9"] = 9
+	charToParameterIndex = make(map[string]int, 9)
+	charToParameterIndex["1"] = 0
+	charToParameterIndex["2"] = 1
+	charToParameterIndex["3"] = 2
+	charToParameterIndex["4"] = 3
+	charToParameterIndex["5"] = 4
+	charToParameterIndex["6"] = 5
+	charToParameterIndex["7"] = 6
+	charToParameterIndex["8"] = 7
+	charToParameterIndex["9"] = 8
 }
 
-func (m *macro) output(p []parameterValue) stream.TokenStream {
-	// TODO: may me more efficient if components is just a slice
-	//  we can pre allocate it b/c we can calculate the size of the output :)
-	var components []stream.TokenStream
-	replacementTokens := m.replacement
+func (replacement *replacementTokens) performReplacement(parameterValues []parameterValue) stream.TokenStream {
+	outputSize := 0
+	for _, v := range parameterValues {
+		outputSize += len(v)
+	}
+	r := replacement
+	for r != nil {
+		outputSize += len(r.tokens)
+		if r.next == nil {
+			break
+		}
+		r = r.next.next
+	}
+	output := make([]token.Token, 0, outputSize)
 	for {
-		if replacementTokens == nil {
-			fmt.Println("Ending")
+		if replacement == nil {
 			break
 		}
-		components = append(components, stream.NewSliceStream(replacementTokens.tokens))
-		if replacementTokens.next == nil {
+		output = append(output, replacement.tokens...)
+		if replacement.next == nil {
 			break
 		}
-		parameter := replacementTokens.next.index
-		components = append(components, stream.NewSliceStream(p[parameter-1]))
-		replacementTokens = replacementTokens.next.next
+		parameterIndex := replacement.next.index
+		output = append(output, parameterValues[parameterIndex]...)
+		//goland:noinspection GoAssignmentToReceiver
+		replacement = replacement.next.next
 	}
-	if m.argumentsTemplate.finalToken != nil {
-		components = append(components, stream.NewSliceStream([]token.Token{m.argumentsTemplate.finalToken}))
-	}
-	return stream.NewChainedStream(components...)
+	return stream.NewSliceStream(output)
 }
 
-func (a *argumentsTemplate) calculateParameterValues(s stream.TokenStream) ([]parameterValue, error) {
+func (a *argumentTemplate) buildParameterValues(s stream.TokenStream) ([]parameterValue, error) {
 	if err := a.consumePrefix(s); err != nil {
 		return nil, err
 	}
@@ -99,9 +104,9 @@ func (a *argumentsTemplate) calculateParameterValues(s stream.TokenStream) ([]pa
 		var err error
 		delimiter := a.delimiters[index]
 		if len(delimiter) == 0 {
-			value, err = consumeUndelimitedParameterValue(s)
+			value, err = buildUndelimitedParameterValue(s)
 		} else {
-			value, err = consumeDelimitedParameterValue(s, delimiter, index+1)
+			value, err = buildDelimitedParameterValue(s, delimiter, index+1)
 		}
 		if err != nil {
 			return nil, err
@@ -111,7 +116,7 @@ func (a *argumentsTemplate) calculateParameterValues(s stream.TokenStream) ([]pa
 	}
 }
 
-func consumeDelimitedParameterValue(s stream.TokenStream, delimiter []token.Token, paramNum int) (parameterValue, error) {
+func buildDelimitedParameterValue(s stream.TokenStream, delimiter []token.Token, paramNum int) (parameterValue, error) {
 	var tokenList []token.Token
 	scopeDepth := 0
 	closingScopeDepth := 0
@@ -170,7 +175,7 @@ func tokenListHasTail(list, tail []token.Token) bool {
 	return true
 }
 
-func consumeUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error) {
+func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error) {
 	t, err := s.NextToken()
 	if err != nil {
 		return nil, err
@@ -204,7 +209,7 @@ func consumeUndelimitedParameterValue(s stream.TokenStream) (parameterValue, err
 	}
 }
 
-func (a *argumentsTemplate) consumePrefix(s stream.TokenStream) error {
+func (a *argumentTemplate) consumePrefix(s stream.TokenStream) error {
 	i := 0
 	for {
 		if len(a.prefix) <= i {

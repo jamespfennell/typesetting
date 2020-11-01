@@ -31,11 +31,12 @@ func (b *command) Invoke(ctx *context.Context, es stream.ExpandingStream) error 
 		return errors.New("expected command token, received something else")
 	}
 	m := &macro{}
-	m.argumentsTemplate, err = buildArgumentsTemplate(s)
+	var replacementEndToken token.Token
+	m.argument, replacementEndToken, err = buildArgumentsTemplate(s)
 	if err != nil {
 		return err
 	}
-	m.replacement, err = buildReplacementTokens(s)
+	m.replacement, err = buildReplacementTokens(s, replacementEndToken)
 	if err != nil {
 		return err
 	}
@@ -43,9 +44,10 @@ func (b *command) Invoke(ctx *context.Context, es stream.ExpandingStream) error 
 	return nil
 }
 
-func buildArgumentsTemplate(s stream.TokenStream) (argumentsTemplate, error) {
-	template := argumentsTemplate{}
-	lastParameter := 0
+func buildArgumentsTemplate(s stream.TokenStream) (argumentTemplate, token.Token, error) {
+	template := argumentTemplate{}
+	var replacementEndToken token.Token
+	curParameterIndex := 0
 	err := func() error {
 		for {
 			t, err := s.NextToken()
@@ -53,13 +55,13 @@ func buildArgumentsTemplate(s stream.TokenStream) (argumentsTemplate, error) {
 				return err
 			}
 			if t == nil {
-				return errors.New("unexpected end of tokenization while parsing macro argumentsTemplate")
+				return errors.New("unexpected end of tokenization while parsing macro argumentTemplate")
 			}
 			switch t.CatCode() {
 			case catcode.BeginGroup:
 				return nil
 			case catcode.EndGroup:
-				return errors.New("unexpected end of group character in macro argumentsTemplate definition")
+				return errors.New("unexpected end of group character in macro argumentTemplate definition")
 			case catcode.Parameter:
 				t, err := s.NextToken()
 				if err != nil {
@@ -71,27 +73,27 @@ func buildArgumentsTemplate(s stream.TokenStream) (argumentsTemplate, error) {
 				if t.CatCode() == catcode.BeginGroup {
 					// end the group according to the special #{ rule
 					addTokenToArgumentTemplate(&template, t)
-					template.finalToken = t
+					replacementEndToken = t
 					return nil
 				}
-				intVal, ok := charToInt[t.Value()]
+				parameterIndex, ok := charToParameterIndex[t.Value()]
 				if !ok {
 					return errors.New("unexpected token after #: " + t.Value())
 				}
-				if intVal != lastParameter+1 {
+				if parameterIndex != curParameterIndex {
 					return errors.New("unexpected number after #: " + t.Value())
 				}
-				lastParameter++
+				curParameterIndex++
 				template.delimiters = append(template.delimiters, []token.Token{})
 			default:
 				addTokenToArgumentTemplate(&template, t)
 			}
 		}
 	}()
-	return template, err
+	return template, replacementEndToken, err
 }
 
-func addTokenToArgumentTemplate(a *argumentsTemplate, t token.Token) {
+func addTokenToArgumentTemplate(a *argumentTemplate, t token.Token) {
 	if len(a.delimiters) == 0 {
 		a.prefix = append(a.prefix, t)
 		return
@@ -102,7 +104,7 @@ func addTokenToArgumentTemplate(a *argumentsTemplate, t token.Token) {
 	)
 }
 
-func buildReplacementTokens(s stream.TokenStream) (*replacementTokens, error) {
+func buildReplacementTokens(s stream.TokenStream, finalToken token.Token) (*replacementTokens, error) {
 	scopeDepth := 0
 	root := &replacementTokens{}
 	curTokens := root
@@ -112,13 +114,16 @@ func buildReplacementTokens(s stream.TokenStream) (*replacementTokens, error) {
 			return nil, err
 		}
 		if t == nil {
-			return nil, errors.New("unexpected end of tokenization while parsing macro argumentsTemplate")
+			return nil, errors.New("unexpected end of tokenization while parsing macro argumentTemplate")
 		}
 		switch t.CatCode() {
 		case catcode.BeginGroup:
 			scopeDepth += 1
 		case catcode.EndGroup:
 			if scopeDepth == 0 {
+				if finalToken != nil {
+					curTokens.tokens = append(curTokens.tokens, finalToken)
+				}
 				return root, nil
 			}
 			scopeDepth -= 1
@@ -134,7 +139,7 @@ func buildReplacementTokens(s stream.TokenStream) (*replacementTokens, error) {
 				curTokens.tokens = append(curTokens.tokens, t)
 				continue
 			}
-			index, ok := charToInt[t.Value()]
+			index, ok := charToParameterIndex[t.Value()]
 			if !ok {
 				return nil, errors.New("unexpected token after #: " + t.Value())
 			}
