@@ -31,12 +31,13 @@ func (buffer *CircularBuffer) Get(index int) (string, bool) {
 }
 
 type Reader struct {
-	input     *bufio.Scanner
-	line      []rune
-	runeIndex int
-	lineIndex int
-	err       error
-	pastLines CircularBuffer
+	input      *bufio.Scanner
+	line       []rune
+	stringLine string
+	runeIndex  int
+	lineIndex  int
+	err        error
+	pastLines  CircularBuffer
 }
 
 func NewReader(r io.Reader) *Reader {
@@ -64,6 +65,7 @@ func (file *Reader) ReadRune() (rune, int, error) {
 		}
 		line := file.input.Text()
 		file.pastLines.Add(line)
+		file.stringLine = line
 		file.line = []rune(line)
 		file.lineIndex++
 		file.runeIndex = 0

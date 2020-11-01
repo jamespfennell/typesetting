@@ -42,6 +42,31 @@ func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput 
 	CheckStreamEqual(t, expectedStream, actualStream)
 }
 
+// TODO: dedeplicate code or maybe not
+func RunExpansionErrorTest(t *testing.T, ctx *context.Context, input string) error {
+	startingStream := NewStream(ctx, input)
+	err := execution.ExecuteWithControl(
+		ctx,
+		expansion.Expand(ctx, startingStream),
+		func(t token.Token) error {
+			return nil
+		},
+		func(ctx *context.Context, s stream.ExpandingStream, t token.Token) error {
+			switch t.CatCode() {
+			case catcode.BeginGroup:
+				ctx.BeginScope()
+			case catcode.EndGroup:
+				ctx.EndScope()
+			}
+			return nil
+		},
+	)
+	if err == nil {
+		t.Errorf("Expected error, recieved none")
+	}
+	return err
+}
+
 func NewSimpleStream(values ...string) stream.TokenStream {
 	var tokens []token.Token
 	for _, value := range values {

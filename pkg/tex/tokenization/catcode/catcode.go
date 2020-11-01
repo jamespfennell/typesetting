@@ -25,6 +25,18 @@ const (
 	Invalid
 )
 
+func (catCode CatCode) String() string {
+	switch catCode {
+	case Escape:
+		return "escape"
+	case BeginGroup:
+		return "begin group"
+	case Letter:
+		return "letter"
+	}
+	return "unknown"
+}
+
 // Map is a typed version of datastructures.ScopedMap in which the values are of type CatCode.
 type Map struct {
 	scopedMap datastructures.ScopedMap

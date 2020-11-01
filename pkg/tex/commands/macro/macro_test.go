@@ -2,6 +2,7 @@ package macro
 
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	"github.com/jamespfennell/typesetting/pkg/tex/errors"
 	"github.com/jamespfennell/typesetting/pkg/tex/execution"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
@@ -95,14 +96,13 @@ func TestDef(t *testing.T) {
 				"\\punishment ",
 			strings.Repeat("I must not talk in class.", 100),
 		},
-		/* TODO: scoping needed for this to pass
 		{ // TeXBook exercise 20.2
 			"\\def\\a{\\b}" +
 				"\\def\\b{A\\def\\a{B\\def\\a{C\\def\\a{\\b}}}}" +
-				"\\def\\puzzle{\\a\\a\\a\\a\\a}",
-				"ABCAB",
+				"\\def\\puzzle{\\a\\a\\a\\a\\a}" +
+				"\\puzzle",
+			"ABCAB",
 		},
-		*/
 		{ // TeXBook exercise 20.3, part 1
 			"\\def\\row#1{(#1_1,\\ldots,#1_n)}\\row{\\bf x}",
 			"(\\bf x_1,\\ldots,\\bf x_n)",
@@ -165,4 +165,57 @@ func TestDef_TeXBookExercise20dot7(t *testing.T) {
 		"\\def\\!!1#2![{!#]#!!2}\\! x{[y]][z}",
 		"{#]![y][z}",
 	)
+}
+
+func TestDef_EndOfInputErrors(t *testing.T) {
+	inputs := []string{
+		"\\def",
+		"\\def\\A",
+		"\\def\\A{",
+		"\\def\\A{{}",
+		"\\def\\A#",
+		"\\def\\A#1{} \\A",
+		"\\def\\A#1{} \\A{this {is parameter 1 but it never ends}",
+		"\\def\\A abc{} \\A ab",
+		"\\def\\A #1abc{} \\A {first parameter}ab",
+	}
+	for i, input := range inputs {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			ctx := context.NewContext()
+			ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
+			execution.Register(ctx, "def", GetDef())
+
+			err := testutil.RunExpansionErrorTest(t, ctx, input)
+			_, ok := err.(errors.UnexpectedEndOfInputError)
+			if !ok {
+				t.Errorf("Recieved the wrong kind of error! Expected %T; recieved %T", errors.UnexpectedEndOfInputError{}, err)
+			}
+		})
+	}
+}
+
+func TestDef_UnexpectedTokenErrors(t *testing.T) {
+	inputs := []string{
+		"\\def a",
+		"\\def\\A }",
+		"\\def\\A #a}",
+		"\\def\\A #2{}",
+		"\\def\\A #1{#a}",
+		"\\def\\A {#2}",
+		"\\def\\A #1{#2}",
+		"\\def\\A abc{d} \\A abd",
+	}
+	for i, input := range inputs {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			ctx := context.NewContext()
+			ctx.Tokenization.CatCodes = catcode.NewCatCodeMapWithTexDefaults()
+			execution.Register(ctx, "def", GetDef())
+
+			err := testutil.RunExpansionErrorTest(t, ctx, input)
+			_, ok := err.(errors.UnexpectedTokenError)
+			if !ok {
+				t.Errorf("Recieved the wrong kind of error! Expected %T; recieved %T", errors.UnexpectedTokenError{}, err)
+			}
+		})
+	}
 }

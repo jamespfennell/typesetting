@@ -1,9 +1,9 @@
 package macro
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	"github.com/jamespfennell/typesetting/pkg/tex/errors"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
@@ -135,8 +135,8 @@ func buildDelimitedParameterValue(s stream.TokenStream, delimiter []token.Token,
 			return nil, err
 		}
 		if t == nil {
-			return nil, errors.New(
-				fmt.Sprintf("unexpected end of tokenization while reading parameter %d of macro \\", paramNum),
+			return nil, errors.NewUnexpectedEndOfInputError(
+				fmt.Sprintf("reading parameter number %d of macro", paramNum),
 			)
 		}
 		if t.CatCode() == catcode.BeginGroup {
@@ -181,7 +181,7 @@ func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error
 		return nil, err
 	}
 	if t == nil {
-		return nil, errors.New("unexpected end of tokenization")
+		return nil, errors.NewUnexpectedEndOfInputError("reading parameter value")
 	}
 	if t.CatCode() != catcode.BeginGroup {
 		return []token.Token{t}, nil
@@ -194,7 +194,7 @@ func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error
 			return nil, err
 		}
 		if t == nil {
-			return nil, errors.New("unexpected end of tokenization")
+			return nil, errors.NewUnexpectedEndOfInputError("reading parameter value")
 		}
 		if t.CatCode() == catcode.BeginGroup {
 			scopeDepth += 1
@@ -209,6 +209,8 @@ func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error
 	}
 }
 
+const readingArgumentPrefix = "matching the prefix of a macro argument"
+
 func (a *argumentTemplate) consumePrefix(s stream.TokenStream) error {
 	i := 0
 	for {
@@ -221,13 +223,14 @@ func (a *argumentTemplate) consumePrefix(s stream.TokenStream) error {
 			return err
 		}
 		if t == nil {
-			return errors.New("unexpected end of tokenization")
+			return errors.NewUnexpectedEndOfInputError(readingArgumentPrefix)
 		}
-		if tokenToMatch.Value() != t.Value() {
-			return errors.New(fmt.Sprintf("unexpected token value %s; expected %s", t.Value(), tokenToMatch.Value()))
-		}
-		if tokenToMatch.CatCode() != t.CatCode() {
-			return errors.New("unexpected token cat code")
+		if tokenToMatch.Value() != t.Value() || tokenToMatch.CatCode() != t.CatCode() {
+			return errors.NewUnexpectedTokenError(
+				t,
+				tokenToMatch.Description(),
+				t.Description(),
+				readingArgumentPrefix)
 		}
 		i++
 	}

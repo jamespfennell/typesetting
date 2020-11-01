@@ -32,12 +32,23 @@ func NewContext() *Context {
 	return &ctx
 }
 
+func (ctx *Context) allScopedDataStructures() []*datastructures.ScopedMap {
+	return []*datastructures.ScopedMap{
+		&ctx.Expansion.Commands.m,
+		&ctx.Execution.Commands.m,
+	}
+}
+
 func (ctx *Context) BeginScope() {
-	ctx.Expansion.Commands.m.BeginScope()
+	for _, sm := range ctx.allScopedDataStructures() {
+		sm.BeginScope()
+	}
 }
 
 func (ctx *Context) EndScope() {
-	ctx.Expansion.Commands.m.EndScope()
+	for _, sm := range ctx.allScopedDataStructures() {
+		sm.EndScope()
+	}
 }
 
 type ExpansionCommand interface {

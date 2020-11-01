@@ -76,7 +76,8 @@ func Writer(receiver logging.LogReceiver) {
 		}
 		switch true {
 		case entry.E != nil:
-			fmt.Println(entry.E.Error())
+
+			// fmt.Println(entry.E.Error())
 		case entry.T != nil:
 			if entry.T.Source() != nil {
 				readerSource, ok := entry.T.Source().(tokenization.ReaderSource)

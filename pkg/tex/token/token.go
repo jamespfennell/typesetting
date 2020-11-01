@@ -14,6 +14,7 @@ type Token interface {
 	CatCode() catcode.CatCode
 	IsCommand() bool
 	Source() Source
+	Description() string
 }
 
 type characterToken struct {
@@ -36,6 +37,11 @@ func (token characterToken) CatCode() catcode.CatCode {
 
 func (token characterToken) Source() Source {
 	return token.source
+}
+func (token characterToken) Description() string {
+	return fmt.Sprintf(
+		"token with value %q and type %s (catcode = %d)",
+		token.Value(), token.CatCode().String(), token.CatCode())
 }
 
 func (token characterToken) String() string {

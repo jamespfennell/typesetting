@@ -168,6 +168,7 @@ func (tokenizer *Tokenizer) NextRawToken() (token.Token, error) {
 	}
 	lineIndex, runeIndex := tokenizer.reader.Coordinates()
 	source := ReaderSource{
+		line:              tokenizer.reader.stringLine,
 		reader:            tokenizer.reader,
 		LineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
@@ -194,16 +195,18 @@ func (tokenizer *Tokenizer) readCommand() (token.Token, error) {
 	}
 	value := b.String()
 	source := ReaderSource{
+		line:              tokenizer.reader.stringLine,
 		reader:            tokenizer.reader,
 		LineIndex:         lineIndex,
 		startingRuneIndex: runeIndex,
-		endingRuneIndex:   runeIndex + len(value) - 1,
+		endingRuneIndex:   runeIndex + len(value),
 	}
 	return token.NewCommandToken(b.String(), source), nil
 }
 
 type ReaderSource struct {
-	reader            *Reader
+	line              string
+	reader            *Reader // TODO: remove this field
 	startingRuneIndex int
 	endingRuneIndex   int
 	LineIndex         int
@@ -218,14 +221,11 @@ func (source ReaderSource) String() string {
 			source.startingRuneIndex+1,
 		),
 	)
-	line, ok := source.reader.pastLines.Get(source.LineIndex)
-	if ok {
-		b.WriteString(">  ")
-		b.WriteString(line)
-		b.WriteString("\n")
-		b.WriteString(strings.Repeat(" ", source.startingRuneIndex+3))
-		b.WriteString(strings.Repeat("^", source.endingRuneIndex-source.startingRuneIndex+2))
-	}
+	b.WriteString(">  ")
+	b.WriteString(source.line)
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat(" ", source.startingRuneIndex+3))
+	b.WriteString(strings.Repeat("^", source.endingRuneIndex-source.startingRuneIndex+1))
 	return b.String()
 }
 
