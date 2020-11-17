@@ -3,6 +3,7 @@ package tex
 import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/tex/commands"
+	"github.com/jamespfennell/typesetting/pkg/tex/commands/conditional"
 	"github.com/jamespfennell/typesetting/pkg/tex/commands/macro"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/execution"
@@ -27,6 +28,10 @@ func CreateTexContext() *context.Context {
 	expansion.RegisterFunc(ctx, "input", commands.Input)
 	expansion.RegisterFunc(ctx, "string", commands.String)
 	expansion.RegisterFunc(ctx, "year", commands.Year)
+	expansion.Register(ctx, "else", conditional.GetElse())
+	expansion.Register(ctx, "fi", conditional.GetFi())
+	expansion.Register(ctx, "iftrue", conditional.GetIfTrue())
+	expansion.Register(ctx, "iffalse", conditional.GetIfFalse())
 
 	execution.Register(ctx, "def", macro.GetDef())
 	execution.RegisterFunc(ctx, "par", func(*context.Context, stream.ExpandingStream) error { return nil })

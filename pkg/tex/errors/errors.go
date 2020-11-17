@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+func FirstNonNilError(e1, e2 error) error {
+	if e1 != nil {
+		return e1
+	}
+	return e2
+}
+
 type UnexpectedTokenError struct {
 	t        token.Token
 	while    string // TODO: rename context and possibly with interface for advanced contexts

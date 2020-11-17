@@ -54,6 +54,7 @@ func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
 			return t, err
 		}
 		cmd, ok := s.ctx.Expansion.Commands.Get(t.Value())
+		// This may be an execution command. Undefined control sequence errors are handled in the executor
 		if !ok {
 			return t, nil
 		}
