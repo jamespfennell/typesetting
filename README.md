@@ -1,40 +1,42 @@
-NOTE: this code does not have a licence yet while I figure out
-    the licensing terms with my employer.
-It will have an open source licence soon!
+# GoTeX: a new and modern implementation of TeX
 
-# Typesetting repo
+This repository hosts a side project whose aim to produce
+    a new implementation of the TeX typesetting system, provisionally called GoTeX.
+The goal is for GoTeX to be a full drop-in replacement for the standard (or "legacy") TeX implementation,
+    as well as subsequent extensions of TeX such as pdfTeX and LuaTeX.
+Note that LaTeX support is automatic: because LaTeX is a set of macros built on top of the TeX language,
+    it works with any correct implementation of TeX, including GoTeX.
 
-This work-in-progress repo hosts a collection of interelated Go packages
-related to typesetting.
-
-## Complete packages
-
-- `github.com/jamespfennell/typesetting/pkg/knuthplass` - a full
-    implementation of the Knuth-Plass line-breaking algorithm.
+The project is currently in a very early stage.
+A full implementation of the Knuth-Plass line-breaking algorithm
+    has already been written (see package `knuthplass`).
+Current development work is focussed on the pure language aspects of TeX - 
+    implementing expansion primitives such as conditionals (package `tex/commands/conditional`) 
+    and macros (package `tex/commands/macro`).
     
-## Roadmap
+## Why create a new implementation of TeX?
 
-The ideal end state of this repository is 
-a new and modern implementation of Tex in Go,
-provisionally called GoTex by analogy to CPython and Jython.
-This ideal end state is very ambitious and is likely not to be attained.
-However, the initial roadmap is:
+There are a few compelling reasons to create a new implementation of TeX,
+    but here I'll only discuss the main one.
+In a nutshell: the TeX source code is extremely challenging to work with,
+    and this directly holds back progress and innovation in the algorithmic typesetting space.
 
-1. Write code to read OTF or TTF font files and extract font metrics from them,
-    using preexisting Go libraries. 
-    This code should be written in such a way as to completely abstract away
-    the font format.
-    We want to avoid the pitfall of Tex, where the implementation details
-    of a specific font file format are hard coded in the source.
-    
-1. Build a "driver" to glue together this font metrics data
-    and the Knuth-Plass algorithm.
-    It will need to include code for generating Knuth-Plass primitives 
-    from text given different alignments (ragged right, justified, etc.).
-    
-1. Write code to export to PDF using preexisting Go libraries. 
-    Again, will need to hide implementation details of PDF as much as possible.
+The legacy implementation of TeX was started around 4 decades ago 
+    and from a software design perspective it's showing its age.
+It's implemented in a custom dialect of Pascal called WEB which was created specifically by Donald Knuth
+    for writing TeX.
+This language is a problem
+    (few people know it; compared to C++ or Java, it lacks important features for large-scale software development).
+The TeX source itself contains what are now considered basic design anti-patterns,
+    chief among them
+    the prevalence of confusing mutable global state,
+    and an almost total lack of encapsulation.
+It's very hard to reason about the program and to modify it in any way.
 
-1. Use these building blocks to develop a full Markdown to PDF tool.
+...to be continued
 
-1. Starting working on a Tex language parser...
+
+
+
+
+
