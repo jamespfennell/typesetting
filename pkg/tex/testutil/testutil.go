@@ -17,9 +17,13 @@ func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput 
 	expectedStream := NewStream(ctx, expectedOutput)
 
 	var outputTokens []token.Token
+	expandingStream := expansion.Expand(ctx, startingStream)
 	err := execution.ExecuteWithControl(
 		ctx,
-		expansion.Expand(ctx, startingStream),
+		expandingStream,
+		// TODO: should run with different regimes
+		//  Problem now is that NextToken is always preceded by PeekToken
+		func() (token.Token, error) { return GetNextToken(t, expandingStream) },
 		func(t token.Token) error {
 			outputTokens = append(outputTokens, t)
 			return nil
@@ -42,12 +46,14 @@ func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput 
 	CheckStreamEqual(t, expectedStream, actualStream)
 }
 
-// TODO: dedeplicate code or maybe not
+// TODO: deduplicate code or maybe not
 func RunExpansionErrorTest(t *testing.T, ctx *context.Context, input string) error {
 	startingStream := NewStream(ctx, input)
+	expandingStream := expansion.Expand(ctx, startingStream)
 	err := execution.ExecuteWithControl(
 		ctx,
-		expansion.Expand(ctx, startingStream),
+		expandingStream,
+		expandingStream.NextToken,
 		func(t token.Token) error {
 			return nil
 		},
@@ -87,8 +93,8 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 	result = true
 	var v1, v2 string
 	for {
-		t1, err1 := s1.NextToken()
-		t2, err2 := s2.NextToken()
+		t1, err1 := GetNextToken(t, s1)
+		t2, err2 := GetNextToken(t, s2)
 		if err1 != err2 {
 			t.Errorf("Error difference: %v != %v", err1, err2)
 			result = false
@@ -110,7 +116,7 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 				v2 += t2.Value()
 			}
 		}
-		if err1 != nil || (t1 == nil && t2 == nil) {
+		if err1 != nil || err2 != nil || (t1 == nil && t2 == nil) {
 			break
 		}
 	}
@@ -118,6 +124,25 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 		t.Errorf("Full streams: \n%s\n%s", v1, v2)
 	}
 	return
+}
+
+func GetNextToken(t *testing.T, s1 stream.TokenStream) (token.Token, error) {
+	t1, err1 := s1.PeekToken()
+	t2, err2 := s1.NextToken()
+	// fmt.Println("Retrieved:", t1, t2)
+	if err1 != nil || err2 != nil {
+		switch true {
+		case err1 == nil:
+			t.Errorf("recieved error in Next but not in Peek - %s", err2)
+		case err2 == nil:
+			t.Errorf("recieved error in Peek but not in Next - %s", err2)
+		case err1.Error() != err2.Error():
+			t.Errorf("recieve different error from Peek (%s) and Next (%s)", err1, err2)
+		}
+		return t2, err2
+	}
+	CheckTokenEqual(t, t1, t2)
+	return t2, nil
 }
 
 func CheckTokenEqual(t *testing.T, t1, t2 token.Token) (result bool) {

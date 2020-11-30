@@ -10,17 +10,18 @@ import (
 )
 
 func Execute(ctx *context.Context, s stream.ExpandingStream) error {
-	return ExecuteWithControl(ctx, s, NewUndefinedControlSequenceError, DefaultNonCommandHandler)
+	return ExecuteWithControl(ctx, s, s.NextToken, NewUndefinedControlSequenceError, DefaultNonCommandHandler)
 }
 
 func ExecuteWithControl(
 	ctx *context.Context,
 	s stream.ExpandingStream,
+	nextToken func() (token.Token, error),
 	undefinedCommandHandler func(token.Token) error,
 	nonCommandHandler func(*context.Context, stream.ExpandingStream, token.Token) error,
 ) error {
 	for {
-		t, err := s.NextToken()
+		t, err := nextToken()
 		if err != nil {
 			return err
 		}

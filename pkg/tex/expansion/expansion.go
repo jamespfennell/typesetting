@@ -17,11 +17,7 @@ func Expand(ctx *context.Context, s stream.TokenStream) stream.ExpandingStream {
 	return &expansionStream{ctx: ctx, stack: stack}
 }
 
-type expansionStream struct {
-	ctx   *context.Context
-	stack *stream.StackStream
-}
-
+// TODO: what is this about???
 type loggingStream struct {
 	*stream.StackStream
 	l logging.LogSender
@@ -33,33 +29,52 @@ func (s loggingStream) NextToken() (token.Token, error) {
 	return t, err
 }
 
+type expansionStream struct {
+	ctx   *context.Context
+	stack *stream.StackStream
+}
+
 func (s *expansionStream) NextToken() (token.Token, error) {
-	t, err := s.PerformOp(stream.NextTokenOp)
+	var t token.Token
+	var err error
+	for {
+		t, err = s.stack.NextToken()
+		if err != nil || t == nil || !t.IsCommand() {
+			break
+		}
+		cmd, ok := s.ctx.Expansion.Commands.Get(t.Value())
+		// This may be an execution command. Undefined control sequence errors are handled in the executor
+		if !ok {
+			break
+		}
+		s.stack.Push(cmd.Invoke(s.ctx, s.stack.Snapshot()))
+	}
 	s.ctx.Expansion.Log.SendToken(t, err)
 	return t, err
 }
 
 func (s *expansionStream) PeekToken() (token.Token, error) {
-	return s.PerformOp(stream.PeekTokenOp)
-}
-
-func (s *expansionStream) SourceStream() stream.TokenStream {
-	return loggingStream{s.stack, s.ctx.Expansion.Log}
-}
-
-func (s *expansionStream) PerformOp(op stream.Op) (token.Token, error) {
+	var t token.Token
+	var err error
 	for {
-		t, err := s.stack.PerformOp(op)
+		t, err = s.stack.PeekToken()
 		if err != nil || t == nil || !t.IsCommand() {
-			return t, err
+			break
 		}
 		cmd, ok := s.ctx.Expansion.Commands.Get(t.Value())
 		// This may be an execution command. Undefined control sequence errors are handled in the executor
 		if !ok {
-			return t, nil
+			break
 		}
+		// Consume the token now that we're acting on it
+		_, _ = s.stack.NextToken()
 		s.stack.Push(cmd.Invoke(s.ctx, s.stack.Snapshot()))
 	}
+	return t, err
+}
+
+func (s *expansionStream) SourceStream() stream.TokenStream {
+	return loggingStream{s.stack, s.ctx.Expansion.Log}
 }
 
 // Writer writes the output of the expansion process to stdout.
