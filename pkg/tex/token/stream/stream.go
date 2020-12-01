@@ -62,11 +62,11 @@ type chainedStream struct {
 }
 
 func (s chainedStream) NextToken() (token.Token, error) {
-	return s.PerformOp(NextTokenOp)
+	return s.PerformOp(token.NextTokenOp())
 }
 
 func (s chainedStream) PeekToken() (token.Token, error) {
-	return s.PerformOp(PeekTokenOp)
+	return s.PerformOp(token.PeekTokenOp())
 }
 
 func (s chainedStream) PerformOp(op token.Op) (token.Token, error) {
@@ -74,7 +74,7 @@ func (s chainedStream) PerformOp(op token.Op) (token.Token, error) {
 		if len(s.streams) == 0 {
 			return nil, nil
 		}
-		t, err := op(s.streams[0])
+		t, err := op.Apply(s.streams[0])
 		if err != nil {
 			return t, err
 		}
@@ -104,11 +104,11 @@ func (s *StackStream) Push(ts token.Stream) {
 }
 
 func (s *StackStream) NextToken() (token.Token, error) {
-	return s.PerformOp(NextTokenOp)
+	return s.PerformOp(token.NextTokenOp())
 }
 
 func (s *StackStream) PeekToken() (token.Token, error) {
-	return s.PerformOp(PeekTokenOp)
+	return s.PerformOp(token.PeekTokenOp())
 }
 
 func (s *StackStream) PerformOp(op token.Op) (token.Token, error) {
@@ -116,7 +116,7 @@ func (s *StackStream) PerformOp(op token.Op) (token.Token, error) {
 		if len(s.stack) == 0 {
 			return nil, nil
 		}
-		t, err := op(s.stack[len(s.stack)-1])
+		t, err := op.Apply(s.stack[len(s.stack)-1])
 		if err != nil || t != nil {
 			return t, err
 		}

@@ -99,7 +99,7 @@ func CheckStreamEqual(t *testing.T, s1, s2 token.Stream) (result bool) {
 			t.Errorf("Error difference: %v != %v", err1, err2)
 			result = false
 		}
-		if !CheckTokenEqual(t, t1, t2) {
+		if !CheckTokenEqual(t, t1, t2, "comparing streams") {
 			result = false
 		}
 		if t1 != nil {
@@ -129,7 +129,6 @@ func CheckStreamEqual(t *testing.T, s1, s2 token.Stream) (result bool) {
 func GetNextToken(t *testing.T, s1 token.Stream) (token.Token, error) {
 	t1, err1 := s1.PeekToken()
 	t2, err2 := s1.NextToken()
-	// fmt.Println("Retrieved:", t1, t2)
 	if err1 != nil || err2 != nil {
 		switch true {
 		case err1 == nil:
@@ -141,11 +140,12 @@ func GetNextToken(t *testing.T, s1 token.Stream) (token.Token, error) {
 		}
 		return t2, err2
 	}
-	CheckTokenEqual(t, t1, t2)
+	// TODO: need better error reporting here
+	CheckTokenEqual(t, t1, t2, "comparing peek and next")
 	return t2, nil
 }
 
-func CheckTokenEqual(t *testing.T, t1, t2 token.Token) (result bool) {
+func CheckTokenEqual(t *testing.T, t1, t2 token.Token, when string) (result bool) {
 	result = true
 	switch true {
 	case t1 == nil && t2 == nil:
@@ -160,7 +160,7 @@ func CheckTokenEqual(t *testing.T, t1, t2 token.Token) (result bool) {
 		result = false
 	}
 	if !result {
-		t.Errorf("Tokens not equal! %v != %v", t1, t2)
+		t.Errorf("Tokens not equal when %s! %v != %v", when, t1, t2)
 	}
 	return
 }

@@ -47,8 +47,28 @@ func (b *trueBranch) NextToken() (token.Token, error) {
 }
 
 func (b *trueBranch) PeekToken() (token.Token, error) {
-	// TODO
-	return nil, nil
+	if b.depth < 0 {
+		return nil, nil
+	}
+	t, err := b.s.PeekToken()
+	if token.ErrorOrNil(t, err) {
+		return nil, errors.FirstNonNilError(err,
+			errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
+		)
+	}
+	if b.depth != 0 {
+		return t, nil
+	}
+	switch classify(t, b.ctx) {
+	case elseToken:
+		b.depth = -1
+		return nil, consumeUntilFi(b.ctx, b.s)
+	case fiToken:
+		_, _ = b.s.NextToken()
+		b.depth = -1
+		return nil, nil
+	}
+	return t, nil
 }
 
 type falseBranch struct {
@@ -59,15 +79,9 @@ type falseBranch struct {
 }
 
 func (b *falseBranch) NextToken() (token.Token, error) {
-	if !b.started {
-		lastType, err := consumeUntilElseOrFi(b.ctx, b.s)
-		if err != nil {
-			return nil, err
-		}
-		if lastType == fiToken {
-			b.depth = -1
-		}
-		b.started = true
+	err := b.ensureStarted()
+	if err != nil {
+		return nil, err
 	}
 	if b.depth < 0 {
 		return nil, nil
@@ -93,8 +107,45 @@ func (b *falseBranch) NextToken() (token.Token, error) {
 }
 
 func (b *falseBranch) PeekToken() (token.Token, error) {
-	// TODO also test this in the expansion test - before each NextToken, do a PeekToken
-	return nil, nil
+	err := b.ensureStarted()
+	if err != nil {
+		return nil, err
+	}
+	if b.depth < 0 {
+		return nil, nil
+	}
+	for {
+		t, err := b.s.PeekToken()
+		if token.ErrorOrNil(t, err) {
+			return nil, errors.FirstNonNilError(err,
+				errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
+			)
+		}
+		switch classify(t, b.ctx) {
+		case fiToken:
+			if b.depth == 0 {
+				_, _ = b.s.NextToken()
+				b.depth -= 1
+				return nil, nil
+			}
+		}
+		return t, nil
+	}
+}
+
+func (b *falseBranch) ensureStarted() error {
+	if b.started {
+		return nil
+	}
+	lastType, err := consumeUntilElseOrFi(b.ctx, b.s)
+	if err != nil {
+		return err
+	}
+	if lastType == fiToken {
+		b.depth = -1
+	}
+	b.started = true
+	return nil
 }
 
 func consumeUntilFi(ctx *context.Context, s token.Stream) error {
