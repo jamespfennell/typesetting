@@ -16,34 +16,32 @@ func (b *trueBranch) NextToken() (token.Token, error) {
 	if b.depth < 0 {
 		return nil, nil
 	}
-	for {
-		t, err := b.s.NextToken()
-		if token.ErrorOrNil(t, err) {
-			return nil, errors.FirstNonNilError(err,
-				errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
-			)
-		}
-		switch classify(t, b.ctx) {
-		case ifToken:
-			b.depth += 1
-		case elseToken:
-			if b.depth != 0 {
-				break
-			}
-			err := consumeUntilFi(b.ctx, b.s)
-			if err != nil {
-				return nil, err
-			}
-			// we've read the closing fi
-			fallthrough
-		case fiToken:
-			b.depth -= 1
-			if b.depth < 0 {
-				return nil, nil
-			}
-		}
-		return t, nil
+	t, err := b.s.NextToken()
+	if token.ErrorOrNil(t, err) {
+		return nil, errors.FirstNonNilError(err,
+			errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
+		)
 	}
+	switch classify(t, b.ctx) {
+	case ifToken:
+		b.depth += 1
+	case elseToken:
+		if b.depth != 0 {
+			break
+		}
+		err := consumeUntilFi(b.ctx, b.s)
+		if err != nil {
+			return nil, err
+		}
+		// we've read the closing fi
+		fallthrough
+	case fiToken:
+		b.depth -= 1
+		if b.depth < 0 {
+			return nil, nil
+		}
+	}
+	return t, nil
 }
 
 func (b *trueBranch) PeekToken() (token.Token, error) {
@@ -86,24 +84,22 @@ func (b *falseBranch) NextToken() (token.Token, error) {
 	if b.depth < 0 {
 		return nil, nil
 	}
-	for {
-		t, err := b.s.NextToken()
-		if token.ErrorOrNil(t, err) {
-			return nil, errors.FirstNonNilError(err,
-				errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
-			)
-		}
-		switch classify(t, b.ctx) {
-		case ifToken:
-			b.depth += 1
-		case fiToken:
-			b.depth -= 1
-			if b.depth < 0 {
-				return nil, nil
-			}
-		}
-		return t, nil
+	t, err := b.s.NextToken()
+	if token.ErrorOrNil(t, err) {
+		return nil, errors.FirstNonNilError(err,
+			errors.NewUnexpectedEndOfInputError("reading true branch of if statement"),
+		)
 	}
+	switch classify(t, b.ctx) {
+	case ifToken:
+		b.depth += 1
+	case fiToken:
+		b.depth -= 1
+		if b.depth < 0 {
+			return nil, nil
+		}
+	}
+	return t, nil
 }
 
 func (b *falseBranch) PeekToken() (token.Token, error) {
