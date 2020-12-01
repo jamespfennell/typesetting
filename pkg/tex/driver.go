@@ -8,7 +8,7 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/execution"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"os"
@@ -34,8 +34,8 @@ func CreateTexContext() *context.Context {
 	expansion.Register(ctx, "iffalse", conditional.GetIfFalse())
 
 	execution.Register(ctx, "def", macro.GetDef())
-	execution.RegisterFunc(ctx, "par", func(*context.Context, stream.ExpandingStream) error { return nil })
-	execution.RegisterFunc(ctx, "relax", func(*context.Context, stream.ExpandingStream) error { return nil })
+	execution.RegisterFunc(ctx, "par", func(*context.Context, token.ExpandingStream) error { return nil })
+	execution.RegisterFunc(ctx, "relax", func(*context.Context, token.ExpandingStream) error { return nil })
 	return ctx
 }
 

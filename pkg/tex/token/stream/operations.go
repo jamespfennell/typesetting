@@ -1,11 +1,12 @@
 package stream
 
 import (
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 	"strings"
 )
 
-func Consume(stream TokenStream) error {
+func Consume(stream token.Stream) error {
 	for {
 		t, err := stream.NextToken()
 		if err != nil {
@@ -17,7 +18,7 @@ func Consume(stream TokenStream) error {
 	}
 }
 
-func ReadString(stream TokenStream) (string, error) {
+func ReadString(stream token.Stream) (string, error) {
 	var b strings.Builder
 	for {
 		t, err := stream.PeekToken()

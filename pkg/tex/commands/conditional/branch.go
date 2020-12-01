@@ -4,12 +4,11 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/errors"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 )
 
 type trueBranch struct {
 	ctx   *context.Context
-	s     stream.TokenStream
+	s     token.Stream
 	depth int
 }
 
@@ -54,7 +53,7 @@ func (b *trueBranch) PeekToken() (token.Token, error) {
 
 type falseBranch struct {
 	ctx     *context.Context
-	s       stream.TokenStream
+	s       token.Stream
 	depth   int
 	started bool
 }
@@ -98,7 +97,7 @@ func (b *falseBranch) PeekToken() (token.Token, error) {
 	return nil, nil
 }
 
-func consumeUntilFi(ctx *context.Context, s stream.TokenStream) error {
+func consumeUntilFi(ctx *context.Context, s token.Stream) error {
 	depth := 0
 	for {
 		if depth < 0 {
@@ -119,7 +118,7 @@ func consumeUntilFi(ctx *context.Context, s stream.TokenStream) error {
 	}
 }
 
-func consumeUntilElseOrFi(ctx *context.Context, s stream.TokenStream) (tokenType, error) {
+func consumeUntilElseOrFi(ctx *context.Context, s token.Stream) (tokenType, error) {
 	depth := 0
 	for {
 		if depth < 0 {

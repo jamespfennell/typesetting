@@ -3,11 +3,10 @@ package commands
 import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
-func String(ctx *context.Context, tokenStream stream.TokenStream) ([]token.Token, error) {
+func String(ctx *context.Context, tokenStream token.Stream) ([]token.Token, error) {
 	t, err := tokenStream.NextToken()
 	if err != nil || t == nil {
 		return nil, err

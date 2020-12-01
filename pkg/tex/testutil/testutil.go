@@ -28,7 +28,7 @@ func RunExpansionTest(t *testing.T, ctx *context.Context, input, expectedOutput 
 			outputTokens = append(outputTokens, t)
 			return nil
 		},
-		func(ctx *context.Context, s stream.ExpandingStream, t token.Token) error {
+		func(ctx *context.Context, s token.ExpandingStream, t token.Token) error {
 			switch t.CatCode() {
 			case catcode.BeginGroup:
 				ctx.BeginScope()
@@ -57,7 +57,7 @@ func RunExpansionErrorTest(t *testing.T, ctx *context.Context, input string) err
 		func(t token.Token) error {
 			return nil
 		},
-		func(ctx *context.Context, s stream.ExpandingStream, t token.Token) error {
+		func(ctx *context.Context, s token.ExpandingStream, t token.Token) error {
 			switch t.CatCode() {
 			case catcode.BeginGroup:
 				ctx.BeginScope()
@@ -73,7 +73,7 @@ func RunExpansionErrorTest(t *testing.T, ctx *context.Context, input string) err
 	return err
 }
 
-func NewSimpleStream(values ...string) stream.TokenStream {
+func NewSimpleStream(values ...string) token.Stream {
 	var tokens []token.Token
 	for _, value := range values {
 		if len(value) >= 4 && value[:4] == "func" {
@@ -85,11 +85,11 @@ func NewSimpleStream(values ...string) stream.TokenStream {
 	return stream.NewSliceStream(tokens)
 }
 
-func NewStream(ctx *context.Context, s string) stream.TokenStream {
+func NewStream(ctx *context.Context, s string) token.Stream {
 	return tokenization.NewTokenizer(ctx, strings.NewReader(s))
 }
 
-func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
+func CheckStreamEqual(t *testing.T, s1, s2 token.Stream) (result bool) {
 	result = true
 	var v1, v2 string
 	for {
@@ -126,7 +126,7 @@ func CheckStreamEqual(t *testing.T, s1, s2 stream.TokenStream) (result bool) {
 	return
 }
 
-func GetNextToken(t *testing.T, s1 stream.TokenStream) (token.Token, error) {
+func GetNextToken(t *testing.T, s1 token.Stream) (token.Token, error) {
 	t1, err1 := s1.PeekToken()
 	t2, err2 := s1.NextToken()
 	// fmt.Println("Retrieved:", t1, t2)

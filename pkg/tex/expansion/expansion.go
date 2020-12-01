@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func Expand(ctx *context.Context, s stream.TokenStream) stream.ExpandingStream {
+func Expand(ctx *context.Context, s token.Stream) token.ExpandingStream {
 	stack := stream.NewStackStream()
 	stack.Push(s)
 	return &expansionStream{ctx: ctx, stack: stack}
@@ -73,7 +73,7 @@ func (s *expansionStream) PeekToken() (token.Token, error) {
 	return t, err
 }
 
-func (s *expansionStream) SourceStream() stream.TokenStream {
+func (s *expansionStream) SourceStream() token.Stream {
 	return loggingStream{s.stack, s.ctx.Expansion.Log}
 }
 

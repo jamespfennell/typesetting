@@ -3,10 +3,11 @@ package conditional
 import (
 	"errors"
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 )
 
-type Condition func(ctx *context.Context, s stream.TokenStream) (bool, error)
+type Condition func(ctx *context.Context, s token.Stream) (bool, error)
 
 type ifCmd struct {
 	c Condition
@@ -18,15 +19,15 @@ func NewIfCommand(c Condition) context.ExpansionCommand {
 
 // GetIfTrue returns the \iftrue command, which always evaluates to true
 func GetIfTrue() context.ExpansionCommand {
-	return NewIfCommand(func(*context.Context, stream.TokenStream) (bool, error) { return true, nil })
+	return NewIfCommand(func(*context.Context, token.Stream) (bool, error) { return true, nil })
 }
 
 // GetIfFalse returns the \iffalse command, which always evaluates to false
 func GetIfFalse() context.ExpansionCommand {
-	return NewIfCommand(func(*context.Context, stream.TokenStream) (bool, error) { return false, nil })
+	return NewIfCommand(func(*context.Context, token.Stream) (bool, error) { return false, nil })
 }
 
-func (cmd ifCmd) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func (cmd ifCmd) Invoke(ctx *context.Context, s token.Stream) token.Stream {
 	result, err := cmd.c(ctx, s)
 	if err != nil {
 		return stream.NewErrorStream(err)
@@ -43,7 +44,7 @@ func GetElse() context.ExpansionCommand {
 	return elseCmd{}
 }
 
-func (cmd elseCmd) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func (cmd elseCmd) Invoke(ctx *context.Context, s token.Stream) token.Stream {
 	return stream.NewErrorStream(errors.New("unexpected else command"))
 }
 
@@ -53,7 +54,7 @@ func GetFi() context.ExpansionCommand {
 	return fiCmd{}
 }
 
-func (cmd fiCmd) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func (cmd fiCmd) Invoke(ctx *context.Context, s token.Stream) token.Stream {
 	return stream.NewErrorStream(errors.New("unexpected fi command"))
 }
 

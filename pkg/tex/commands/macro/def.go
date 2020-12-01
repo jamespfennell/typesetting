@@ -6,7 +6,6 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/errors"
 	"github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
@@ -24,7 +23,7 @@ func GetDef() context.ExecutionCommand {
 
 const determiningMacroDefinitionTarget = "determining the control sequence being defined in a macro definition"
 
-func (b *command) Invoke(ctx *context.Context, es stream.ExpandingStream) error {
+func (b *command) Invoke(ctx *context.Context, es token.ExpandingStream) error {
 	s := es.SourceStream()
 	t, err := s.NextToken()
 	if err != nil {
@@ -56,7 +55,7 @@ func (b *command) Invoke(ctx *context.Context, es stream.ExpandingStream) error 
 
 const parsingArgumentTemplate = "parsing argument template in macro definition"
 
-func buildArgumentsTemplate(s stream.TokenStream) (argumentTemplate, token.Token, error) {
+func buildArgumentsTemplate(s token.Stream) (argumentTemplate, token.Token, error) {
 	template := argumentTemplate{}
 	var replacementEndToken token.Token
 	curParameterIndex := 0
@@ -126,7 +125,7 @@ func addTokenToArgumentTemplate(a *argumentTemplate, t token.Token) {
 	)
 }
 
-func buildReplacementTokens(s stream.TokenStream, finalToken token.Token, numParams int) (*replacementTokens, error) {
+func buildReplacementTokens(s token.Stream, finalToken token.Token, numParams int) (*replacementTokens, error) {
 	scopeDepth := 0
 	root := &replacementTokens{}
 	curTokens := root

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/jamespfennell/typesetting/pkg/datastructures"
 	"github.com/jamespfennell/typesetting/pkg/tex/logging"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"github.com/jamespfennell/typesetting/pkg/tex/tokenization/catcode"
 )
 
@@ -52,7 +52,7 @@ func (ctx *Context) EndScope() {
 }
 
 type ExpansionCommand interface {
-	Invoke(ctx *Context, s stream.TokenStream) stream.TokenStream
+	Invoke(ctx *Context, s token.Stream) token.Stream
 }
 
 type ExpansionCommandMap struct {
@@ -79,7 +79,7 @@ func (m *ExpansionCommandMap) Set(name string, cmd ExpansionCommand) {
 }
 
 type ExecutionCommand interface {
-	Invoke(ctx *Context, s stream.ExpandingStream) error
+	Invoke(ctx *Context, s token.ExpandingStream) error
 }
 
 type ExecutionCommandMap struct {

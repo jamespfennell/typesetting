@@ -4,13 +4,13 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/context"
 	. "github.com/jamespfennell/typesetting/pkg/tex/expansion"
 	"github.com/jamespfennell/typesetting/pkg/tex/testutil"
-	"github.com/jamespfennell/typesetting/pkg/tex/token/stream"
+	"github.com/jamespfennell/typesetting/pkg/tex/token"
 	"testing"
 )
 
 func TestExpand_BasicCase(t *testing.T) {
 	ctx := context.NewContext()
-	RegisterFunc(ctx, "funca", func() stream.TokenStream {
+	RegisterFunc(ctx, "funca", func() token.Stream {
 		return testutil.NewSimpleStream("a1", "a2")
 	})
 
@@ -23,7 +23,7 @@ func TestExpand_BasicCase(t *testing.T) {
 
 func TestExpand_InputProcessing(t *testing.T) {
 	ctx := context.NewContext()
-	RegisterFunc(ctx, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funca", func(c *context.Context, s token.Stream) token.Stream {
 		t, _ := s.NextToken()
 		return testutil.NewSimpleStream("a1", t.Value(), "a2")
 	})
@@ -37,10 +37,10 @@ func TestExpand_InputProcessing(t *testing.T) {
 
 func TestExpand_StackIsConsumed(t *testing.T) {
 	ctx := context.NewContext()
-	RegisterFunc(ctx, "funca", func() stream.TokenStream {
+	RegisterFunc(ctx, "funca", func() token.Stream {
 		return testutil.NewSimpleStream("funcb", "a1")
 	})
-	RegisterFunc(ctx, "funcb", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funcb", func(c *context.Context, s token.Stream) token.Stream {
 		_, _ = s.NextToken()
 		_, _ = s.NextToken()
 		return testutil.NewSimpleStream("b1", "b2")
@@ -55,11 +55,11 @@ func TestExpand_StackIsConsumed(t *testing.T) {
 
 func TestExpand_InputToExpansionFunctionNotExpanded(t *testing.T) {
 	ctx := context.NewContext()
-	RegisterFunc(ctx, "funca", func(c *context.Context, s stream.TokenStream) stream.TokenStream {
+	RegisterFunc(ctx, "funca", func(c *context.Context, s token.Stream) token.Stream {
 		_, _ = s.NextToken()
 		return testutil.NewSimpleStream("a1", "a2")
 	})
-	RegisterFunc(ctx, "funcb", func() stream.TokenStream {
+	RegisterFunc(ctx, "funcb", func() token.Stream {
 		return testutil.NewSimpleStream("b1", "b2")
 	})
 

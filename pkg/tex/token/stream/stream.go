@@ -5,44 +5,15 @@ import (
 	"github.com/jamespfennell/typesetting/pkg/tex/token"
 )
 
-// TokenStream represents a token list, a fundamental data type in TeX.
-// A token list is an ordered collection of Token types which are retrieved on demand.
-//
-// The name 'token list' originates in the TeX82 implementation.
-// Conceptually it's better to think of a token list as a stream instead of a list:
-// in many cases the contents of the list is not predetermined when the list is created.
-type TokenStream interface {
-	// NextToken retrieves the next Token in the TokenStream.
-	NextToken() (token.Token, error)
-
-	PeekToken() (token.Token, error)
-}
-
-type ExpandingStream interface {
-	NextToken() (token.Token, error)
-
-	PeekToken() (token.Token, error)
-
-	SourceStream() TokenStream
-}
-
-type Op func(s TokenStream) (token.Token, error)
-
-type TokenStreamWithOp interface {
-	TokenStream
-
-	PerformOp(Op) (token.Token, error)
-}
-
-func NextTokenOp(s TokenStream) (token.Token, error) {
+func NextTokenOp(s token.Stream) (token.Token, error) {
 	return s.NextToken()
 }
 
-func PeekTokenOp(s TokenStream) (token.Token, error) {
+func PeekTokenOp(s token.Stream) (token.Token, error) {
 	return s.PeekToken()
 }
 
-func NewSliceStream(tokens []token.Token) TokenStream {
+func NewSliceStream(tokens []token.Token) token.Stream {
 	return &sliceStream{tokens: tokens}
 }
 
@@ -66,7 +37,7 @@ func (s *sliceStream) PeekToken() (token.Token, error) {
 	return s.tokens[0], nil
 }
 
-func NewErrorStream(e error) TokenStream {
+func NewErrorStream(e error) token.Stream {
 	return errorStream{e: e}
 }
 
@@ -82,12 +53,12 @@ func (s errorStream) PeekToken() (token.Token, error) {
 	return nil, s.e
 }
 
-func NewChainedStream(s ...TokenStream) TokenStream {
+func NewChainedStream(s ...token.Stream) token.Stream {
 	return chainedStream{streams: s}
 }
 
 type chainedStream struct {
-	streams []TokenStream
+	streams []token.Stream
 }
 
 func (s chainedStream) NextToken() (token.Token, error) {
@@ -98,7 +69,7 @@ func (s chainedStream) PeekToken() (token.Token, error) {
 	return s.PerformOp(PeekTokenOp)
 }
 
-func (s chainedStream) PerformOp(op Op) (token.Token, error) {
+func (s chainedStream) PerformOp(op token.Op) (token.Token, error) {
 	for {
 		if len(s.streams) == 0 {
 			return nil, nil
@@ -116,7 +87,7 @@ func (s chainedStream) PerformOp(op Op) (token.Token, error) {
 }
 
 type StackStream struct {
-	stack []TokenStream
+	stack []token.Stream
 }
 
 func NewStackStream() *StackStream {
@@ -128,7 +99,7 @@ func (s *StackStream) Snapshot() *StackStream {
 	return &c
 }
 
-func (s *StackStream) Push(ts TokenStream) {
+func (s *StackStream) Push(ts token.Stream) {
 	s.stack = append(s.stack, ts)
 }
 
@@ -140,7 +111,7 @@ func (s *StackStream) PeekToken() (token.Token, error) {
 	return s.PerformOp(PeekTokenOp)
 }
 
-func (s *StackStream) PerformOp(op Op) (token.Token, error) {
+func (s *StackStream) PerformOp(op token.Op) (token.Token, error) {
 	for {
 		if len(s.stack) == 0 {
 			return nil, nil
@@ -153,12 +124,12 @@ func (s *StackStream) PerformOp(op Op) (token.Token, error) {
 	}
 }
 
-func NewStreamWithCleanup(list TokenStream, cleanupFunc func()) TokenStream {
+func NewStreamWithCleanup(list token.Stream, cleanupFunc func()) token.Stream {
 	return &streamWithCleanup{list: list, cleanupFunc: cleanupFunc}
 }
 
 type streamWithCleanup struct {
-	list        TokenStream
+	list        token.Stream
 	cleanupFunc func()
 	cleanedUp   bool
 }
@@ -182,12 +153,12 @@ func (s *streamWithCleanup) PeekToken() (token.Token, error) {
 	return s.list.PeekToken() // TODO: what if the stream is over?
 }
 
-func NewStreamWithLog(s ExpandingStream, sender logging.LogSender) ExpandingStream {
+func NewStreamWithLog(s token.ExpandingStream, sender logging.LogSender) token.ExpandingStream {
 	return streamWithLog{s, sender}
 }
 
 type streamWithLog struct {
-	ExpandingStream
+	token.ExpandingStream
 	logging.LogSender
 }
 

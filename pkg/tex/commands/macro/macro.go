@@ -14,7 +14,7 @@ type macro struct {
 	replacement *replacementTokens
 }
 
-func (m macro) Invoke(ctx *context.Context, s stream.TokenStream) stream.TokenStream {
+func (m macro) Invoke(ctx *context.Context, s token.Stream) token.Stream {
 	p, err := m.argument.buildParameterValues(s)
 	if err != nil {
 		return stream.NewErrorStream(err)
@@ -60,7 +60,7 @@ func init() {
 	charToParameterIndex["9"] = 8
 }
 
-func (replacement *replacementTokens) performReplacement(parameterValues []parameterValue) stream.TokenStream {
+func (replacement *replacementTokens) performReplacement(parameterValues []parameterValue) token.Stream {
 	outputSize := 0
 	for _, v := range parameterValues {
 		outputSize += len(v)
@@ -90,7 +90,7 @@ func (replacement *replacementTokens) performReplacement(parameterValues []param
 	return stream.NewSliceStream(output)
 }
 
-func (a *argumentTemplate) buildParameterValues(s stream.TokenStream) ([]parameterValue, error) {
+func (a *argumentTemplate) buildParameterValues(s token.Stream) ([]parameterValue, error) {
 	if err := a.consumePrefix(s); err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (a *argumentTemplate) buildParameterValues(s stream.TokenStream) ([]paramet
 	}
 }
 
-func buildDelimitedParameterValue(s stream.TokenStream, delimiter []token.Token, paramNum int) (parameterValue, error) {
+func buildDelimitedParameterValue(s token.Stream, delimiter []token.Token, paramNum int) (parameterValue, error) {
 	var tokenList []token.Token
 	scopeDepth := 0
 	closingScopeDepth := 0
@@ -175,7 +175,7 @@ func tokenListHasTail(list, tail []token.Token) bool {
 	return true
 }
 
-func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error) {
+func buildUndelimitedParameterValue(s token.Stream) (parameterValue, error) {
 	t, err := s.NextToken()
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func buildUndelimitedParameterValue(s stream.TokenStream) (parameterValue, error
 
 const readingArgumentPrefix = "matching the prefix of a macro argument"
 
-func (a *argumentTemplate) consumePrefix(s stream.TokenStream) error {
+func (a *argumentTemplate) consumePrefix(s token.Stream) error {
 	i := 0
 	for {
 		if len(a.prefix) <= i {

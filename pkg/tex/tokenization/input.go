@@ -24,7 +24,7 @@ type Tokenizer struct {
 	inputOver             bool
 }
 
-func NewTokenizerFromFilePath(ctx *context.Context, filePath string) stream.TokenStream {
+func NewTokenizerFromFilePath(ctx *context.Context, filePath string) token.Stream {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return stream.NewErrorStream(err)
