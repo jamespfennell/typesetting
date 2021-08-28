@@ -1,3 +1,5 @@
+Abandoned in favor of [Texcraft](https://github.com/jamespfennell/texcraft).
+
 # GoTeX: a new and modern implementation of TeX
 
 This repository hosts a side project whose aim to produce
